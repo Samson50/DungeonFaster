@@ -15,7 +15,9 @@ y_offset = 0
 def main():
     clock = pygame.time.Clock()
     # initialize window
-    surface = pygame.display.set_mode((1000, 1000))
+    width = 1000
+    height = 1000
+    surface = pygame.display.set_mode((width, height), RESIZABLE)
     # create surface
 
     # call map
@@ -36,9 +38,25 @@ def main():
 
             # Input
             for event in events:
+                if event.type == KEYDOWN:
+                    """
+                    if event.key == K_F11:
+                        flags = surface.get_flags()
+                        if flags & FULLSCREEN:
+                            surface = pygame.display.set_mode((width, height), RESIZABLE)
+                        else:
+                            surface = pygame.display.set_mode((0, 0), FULLSCREEN)
+                    """
+                    if event.key == K_ESCAPE:
+                        location.save()
+                        sys.exit(0)
                 if event.type == QUIT:
                     location.save()
                     sys.exit(0)
+                if event.type == pygame.VIDEORESIZE:
+                    width = event.w
+                    height = event.h
+                    surface = pygame.display.set_mode((width, height), RESIZABLE)
 
             pygame.display.update()
             clock.tick(20)

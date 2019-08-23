@@ -67,7 +67,7 @@ class Location:
         if current_hex:
             self.map.highlight_grid(surface, current_hex[0], current_hex[1])
 
-        # Input
+        # Keyboard Input
         for game_event in events:
             if game_event.type == MOUSEBUTTONUP:
                 self.map.flip_grid(mouse_x, mouse_y)
@@ -84,6 +84,8 @@ class Location:
                     self.map.zoom_in()
                 elif game_event.key == K_KP2:
                     self.map.zoom_out()
+
+                # Mixer
                 elif game_event.key == K_PERIOD:
                     self.mixer.volume_up()
                 elif game_event.key == K_COMMA:
