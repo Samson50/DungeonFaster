@@ -21,9 +21,16 @@ class Song:
         self.track.stop()
 
     def volume_down(self):
-        volume = self.track.get_volume() * 0.9
+        volume = self.track.get_volume() * 0.8
         self.track.set_volume(volume)
 
     def volume_up(self):
-        volume = self.track.get_volume() / 0.9
+        volume = self.track.get_volume() / 0.8
         self.track.set_volume(volume)
+
+    def set_volume(self, volume):
+        self.track.set_volume(volume)
+
+
+if __name__ == "__main__":
+    print("working")

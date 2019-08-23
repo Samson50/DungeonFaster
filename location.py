@@ -50,12 +50,14 @@ class Location:
         with open(self.save_file, 'r') as save_file:
             save_data = json.loads(save_file.read())
             self.map.load(save_data)
+            self.mixer.load(save_data)
 
     def save(self):
         with open(self.save_file, 'w+') as save_file:
             save_data = {}
             self.map.save(save_data)
-            save_file.write(json.dumps(save_data))
+            self.mixer.save(save_data)
+            save_file.write(json.dumps(save_data, indent=4, separators=(',', ': ')))
 
     def draw(self, surface):
         self.map.draw(surface)

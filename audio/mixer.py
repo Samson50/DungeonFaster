@@ -14,12 +14,21 @@ class Mixer:
             raw_playlist = play_file.read()
             self.playlist = json.loads(raw_playlist)
 
+        self.volume = 1
+
         self.ambient = None
         self.atmosphere = None
         self.combat = None
         self.set_songs()
 
         self.in_combat = False
+
+    def save(self, save_data):
+        save_data["volume"] = self.volume
+
+    def load(self, save_data):
+        self.volume = save_data["volume"]
+        self.set_volume(self.volume)
 
     def set_songs(self):
         for song in self.playlist:
@@ -40,18 +49,19 @@ class Mixer:
                 raise Exception
 
     def volume_up(self):
-        if self.in_combat:
-            self.combat.volume_up()
-        else:
-            self.ambient.volume_up()
-            self.atmosphere.volume_up()
+        self.volume = self.volume / 0.8
+        self.set_volume(self.volume)
 
     def volume_down(self):
+        self.volume = self.volume * 0.8
+        self.set_volume(self.volume)
+
+    def set_volume(self, volume):
         if self.in_combat:
-            self.combat.volume_down()
+            self.combat.set_volume(volume)
         else:
-            self.ambient.volume_down()
-            self.atmosphere.volume_down()
+            self.ambient.set_volume(volume)
+            self.atmosphere.set_volume(volume)
 
     def play(self):
         if self.in_combat:
@@ -59,21 +69,19 @@ class Mixer:
         else:
             self.ambient.play()
             self.atmosphere.play()
+        self.set_volume(self.volume)
 
-    def switch_combat(self):
+    def stop(self):
         if self.in_combat:
-            self.in_combat = False
             self.combat.stop()
-
-            self.ambient.play()
-            self.atmosphere.play()
-
         else:
-            self.in_combat = True
             self.ambient.stop()
             self.atmosphere.stop()
 
-            self.combat.play()
+    def switch_combat(self):
+        self.stop()
+        self.in_combat = not self.in_combat
+        self.play()
 
 
 if __name__ == "__main__":
