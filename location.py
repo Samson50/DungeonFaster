@@ -48,11 +48,14 @@ class Location:
 
     def load(self):
         with open(self.save_file, 'r') as save_file:
-            self.map.load(json.loads(save_file.read()))
+            save_data = json.loads(save_file.read())
+            self.map.load(save_data)
 
     def save(self):
         with open(self.save_file, 'w+') as save_file:
-            self.map.save(save_file)
+            save_data = {}
+            self.map.save(save_data)
+            save_file.write(json.dumps(save_data))
 
     def draw(self, surface):
         self.map.draw(surface)
@@ -81,6 +84,12 @@ class Location:
                     self.map.zoom_in()
                 elif game_event.key == K_KP2:
                     self.map.zoom_out()
+                elif game_event.key == K_PERIOD:
+                    self.mixer.volume_up()
+                elif game_event.key == K_COMMA:
+                    self.mixer.volume_down()
+                elif game_event.key == K_c:
+                    self.mixer.switch_combat()
 
 
 if __name__ == "__main__":

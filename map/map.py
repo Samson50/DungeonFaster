@@ -37,15 +37,11 @@ class Map:
 
         self.update_zoom()
 
-    def save(self, save_file):
-        save_data = {
-            "x_offset": self.x_offset,
-            "y_offset": self.y_offset,
-            "zoom": self.zoom,
-            "grid_matrix": self.grid_matrix
-        }
-
-        save_file.write(json.dumps(save_data))
+    def save(self, save_data):
+        save_data["x_offset"] = self.x_offset
+        save_data["y_offset"] = self.y_offset
+        save_data["zoom"] = self.zoom
+        save_data["grid_matrix"] = self.grid_matrix
 
     def initialize_grid(self, grid_file):
         pass

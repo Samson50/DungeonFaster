@@ -39,6 +39,20 @@ class Mixer:
             else:
                 raise Exception
 
+    def volume_up(self):
+        if self.in_combat:
+            self.combat.volume_up()
+        else:
+            self.ambient.volume_up()
+            self.atmosphere.volume_up()
+
+    def volume_down(self):
+        if self.in_combat:
+            self.combat.volume_down()
+        else:
+            self.ambient.volume_down()
+            self.atmosphere.volume_down()
+
     def play(self):
         if self.in_combat:
             self.combat.play()
