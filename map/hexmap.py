@@ -1,5 +1,6 @@
 import pygame
 import math
+import os
 
 from map.map import Map
 
@@ -10,18 +11,17 @@ HIGHLIGHT = pygame.image.load("resources/maps/highlight.png")
 
 
 class HexMap(Map):
-    def __init__(self, image_file, x_margin, y_margin, pixel_density, hex_file=None, path=""):
+    def __init__(self, image_file, x_margin, y_margin, pixel_density, hex_file, path):
         super().__init__(image_file, x_margin, y_margin, pixel_density, hex_file, path)
 
     def initialize_grid(self, hex_file):
         self.grid_x = int((self.width - 2 * self.x_margin) / (2 * self.pixel_density))
         self.grid_y = int((self.height - 2 * self.y_margin) / (math.sqrt(3) * self.pixel_density / 2))
+        self.grid_file = self.path + hex_file
 
-        if not hex_file:
-            self.grid_file = "test.txt"
+        if not os.path.exists(self.path + hex_file):
             self.grid_matrix = [[0 for i in range(self.grid_x)] for j in range(self.grid_y)]
         else:
-            self.grid_file = self.path + hex_file
             self.grid_matrix = self.read_grid_file()
 
     def scale_tiles(self):

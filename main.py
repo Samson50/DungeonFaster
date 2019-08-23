@@ -2,7 +2,7 @@
 import pygame
 import sys
 
-from location import Location
+from location.location import Location
 from pygame.locals import *
 
 
