@@ -23,18 +23,18 @@ def main():
     # call map
     # current_map = HexMap("chult/chult.ppm", 427, 454, 77, "chult/chult.hexes")
     # current_map = GridMap("chult/camp_righteous/camp_righteous.ppm", 133, 143, 57.8, None)
-    location = Location("resources/locations/chult")
+    current_location = Location("resources/locations/sea_of_swords")
 
     while True:
         try:
             surface.fill((0, 0, 0))
             # Display
-            location.draw(surface)
+            current_location.draw(surface)
 
             # Events
             events = pygame.event.get()
 
-            location.update(events, surface)
+            current_location = current_location.update(events, surface)
 
             # Input
             for event in events:
@@ -48,10 +48,10 @@ def main():
                             surface = pygame.display.set_mode((0, 0), FULLSCREEN)
                     """
                     if event.key == K_ESCAPE:
-                        location.save()
+                        current_location.save()
                         sys.exit(0)
                 if event.type == QUIT:
-                    location.save()
+                    current_location.save()
                     sys.exit(0)
                 if event.type == pygame.VIDEORESIZE:
                     width = event.w

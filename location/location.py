@@ -9,8 +9,10 @@ from audio.mixer import Mixer
 
 
 class Location:
-    def __init__(self, path):
+    def __init__(self, path, parent=None):
         self.name = path.split('/')[-1]
+        self.path = path
+        self.parent = parent
 
         self.data_file = path + "/" + self.name + ".data"
         with open(self.data_file, 'r') as data_file:
@@ -42,9 +44,13 @@ class Location:
         else:
             raise Exception
 
+        self.sublocation = self.data["sublocation"]
+
         self.save_file = path + "/" + self.name + ".save"
         if os.path.exists(self.save_file):
             self.load()
+
+        self.current_location = self
 
     def load(self):
         with open(self.save_file, 'r') as save_file:
@@ -73,6 +79,10 @@ class Location:
         for game_event in events:
             if game_event.type == MOUSEBUTTONUP:
                 self.map.flip_grid(mouse_x, mouse_y)
+                for sublocation in self.sublocation.keys():
+                    if current_hex == self.sublocation[sublocation]:
+                        self.mixer.stop()
+                        return Location(self.path + "/" + sublocation, self)
             if game_event.type == KEYDOWN:
                 if game_event.key == K_RIGHT:
                     self.map.shift_right()
@@ -94,6 +104,14 @@ class Location:
                     self.mixer.volume_down()
                 elif game_event.key == K_c:
                     self.mixer.switch_combat()
+
+                # Location
+                elif game_event.key == K_e:
+                    if self.parent:
+                        self.mixer.stop()
+                        return self.parent
+
+        return self
 
 
 if __name__ == "__main__":

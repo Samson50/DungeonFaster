@@ -1,9 +1,8 @@
 import pygame
-import json
 
 
 class Map:
-    def __init__(self, image_file, x_margin, y_margin, pixel_density, grid_file=None, path=""):  # margin  asdf
+    def __init__(self, image_file, x_margin, y_margin, pixel_density, grid_file=None, path=""):
         self.path = path
         self.image = pygame.image.load(path + image_file)
         self.original = pygame.image.load(path + image_file)
@@ -92,6 +91,7 @@ class Map:
 
     def flip_grid(self, x, y):
         selected_grid = self.get_grid(x, y)
+        print(selected_grid)
 
         if not selected_grid:
             return

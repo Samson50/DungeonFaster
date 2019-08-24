@@ -1,4 +1,5 @@
 import pygame
+import os
 
 from map.map import Map
 
@@ -17,7 +18,7 @@ class GridMap(Map):
         self.grid_y = int((self.height - 2 * self.y_margin) / self.pixel_density)
         self.grid_file = self.path + hex_file
 
-        if not hex_file:
+        if not os.path.exists(hex_file):
             self.grid_matrix = [[0 for i in range(self.grid_x)] for j in range(self.grid_y)]
         else:
             self.grid_matrix = self.read_grid_file()
