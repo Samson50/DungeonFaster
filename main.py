@@ -1,6 +1,7 @@
 # Main.py
 import pygame
 import sys
+# import argparse
 
 from location.location import Location
 from pygame.locals import *
@@ -12,7 +13,7 @@ x_offset = 0
 y_offset = 0
 
 
-def main():
+def main(game_dir):
     clock = pygame.time.Clock()
     # initialize window
     width = 1000
@@ -23,7 +24,7 @@ def main():
     # call map
     # current_map = HexMap("chult/chult.ppm", 427, 454, 77, "chult/chult.hexes")
     # current_map = GridMap("chult/camp_righteous/camp_righteous.ppm", 133, 143, 57.8, None)
-    current_location = Location("resources/locations/sea_of_swords")
+    current_location = Location(game_dir)
 
     while True:
         try:
@@ -63,7 +64,7 @@ def main():
 
         except KeyboardInterrupt:
             print("Keyboard Interrupt")
-            location.save()
+            current_location.save()
             sys.exit(0)
         except Exception as e:
             print(str(e))
@@ -72,4 +73,15 @@ def main():
 
 if __name__ == "__main__":
     pygame.init()
-    main()
+
+    """
+    parser = argparse.ArgumentParser()
+    parser.add_argument('game_dir', type=str, nargs=1)
+
+    args = parser.parse_args()
+
+    print(args.game_dir)
+    """
+    game_dir_arg = "resources/locations/chult"
+
+    main(game_dir_arg)
