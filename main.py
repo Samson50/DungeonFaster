@@ -82,6 +82,6 @@ if __name__ == "__main__":
 
     print(args.game_dir)
     """
-    game_dir_arg = "resources/locations/chult"
+    game_dir_arg = "example/chult"
 
     main(game_dir_arg)

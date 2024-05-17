@@ -1,0 +1,7 @@
+.idea/
+__pycache__
+venv/
+example/*
+!example/README.md
+resources/*
+!resources/README.md
