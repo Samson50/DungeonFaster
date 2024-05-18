@@ -1,6 +1,7 @@
 # Main.py
 import pygame
 import sys
+
 # import argparse
 
 from location.location import Location
