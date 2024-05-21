@@ -1,6 +1,7 @@
 .idea/
 .vscode/
 __pycache__
+campaigns/*.json
 venv/
 example/*
 !example/README.md
