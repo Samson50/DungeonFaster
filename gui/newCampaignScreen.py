@@ -1,19 +1,9 @@
-import os
-import re
-
-from kivy.graphics import Color, Rectangle
 from kivy.input.motionevent import MotionEvent
 from kivy.uix.button import Button
-from kivy.uix.screenmanager import Screen, ScreenManager
+from kivy.uix.screenmanager import Screen
 from kivy.uix.boxlayout import BoxLayout
-from kivy.uix.floatlayout import FloatLayout
-from kivy.uix.filechooser import FileChooserListView
-from kivy.uix.image import Image
 from kivy.uix.label import Label
-from kivy.uix.popup import Popup
-from kivy.uix.scatter import Scatter
 from kivy.uix.switch import Switch
-from kivy.uix.textinput import TextInput
 
 from gui.menuManager import MenuManager
 from gui.utilities import FileDialog, LabeledIntInput
@@ -178,7 +168,9 @@ class ControllerLayout(BoxLayout):
         # hex-or-square: Switch
         hex_switch_layout = BoxLayout(orientation="horizontal", size_hint=(1, 0.08))
         hex_switch_layout.add_widget(Label(text="Hex Grid"))
-        hex_switch_layout.add_widget(Switch())
+        hex_switch = Switch()
+        hex_switch.bind(active=self.hex_switch_cb)
+        hex_switch_layout.add_widget(hex_switch)
         self.add_widget(hex_switch_layout)
 
         # Has hidden info: Switch
@@ -237,6 +229,15 @@ class ControllerLayout(BoxLayout):
         self.xMarginController.value = map.grid.x_margin
         self.yMarginController.input.text = str(map.grid.y_margin)
         self.yMarginController.value = map.grid.y_margin
+
+    def hex_switch_cb(self, instance: Switch, state: bool):
+
+        if state:
+            self.screen.map.toHex()
+        else:
+            self.screen.map.toSquare()
+
+        self.screen.map.drawSparse()
 
     def hidden_cb(self, instance: Switch, state: bool):
         if self.screen.map:

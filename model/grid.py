@@ -1,3 +1,5 @@
+import math
+
 from kivy.uix.image import Image
 from kivy.uix.widget import Widget
 
@@ -19,8 +21,8 @@ class Grid:
         self.y_offset = 0
 
         self.matrix = None
-        self.highlight_image_path = "resources/map/highlight_grid.png"
-        self.hidden_image_path = "resources/map/grid.png"
+        self.highlight_image_path = None
+        self.hidden_image_path = None
 
     def save(self) -> dict:
         save_data = {}
@@ -46,35 +48,6 @@ class Grid:
         self.matrix = json_data["matrix"]
 
         self.scale_tiles()
-
-    def update(self, width, height):
-        """
-        Calculate the number of tiles available on the x and y axis from the size of
-        the background image and the current width of each tile
-        """
-
-        self.x = int(width / self.pixel_density - 2 * self.x_margin)
-        self.y = int(height / self.pixel_density - 2 * self.y_margin)
-        self.matrix = [[0 for y in range(self.y)] for x in range(self.x)]
-
-        # self.scale_tiles()
-
-    def draw_grid(self, widget: Widget, x, y):
-        grid_x, grid_y = self.index_to_pixel(x, y)
-        with widget.canvas:
-            Image(source=self.hidden_image_path, pos=(grid_x, grid_y))
-
-    def draw_grids(self, surface):
-        for x in range(self.x):
-            for y in range(self.y):
-                # if self.matrix[y][x] == 1:
-                self.draw_grid(surface, x, y)
-
-    def scale_tiles(self):
-        self.tile_size = (
-            self.pixel_density / self.window.zoom,
-            self.pixel_density / self.window.zoom,
-        )
 
     def tileAtIndex(self, source: str, i: int, j: int):
         Image(
@@ -110,6 +83,72 @@ class Grid:
 
     # ==== Override methods ==== #
 
+    def scale_tiles(self):
+        pass
+
+    def update(self, width, height):
+        """
+        Calculate the number of tiles available on the x and y axis from the size of
+        the background image and the current width of each tile
+        """
+        pass
+
+    def tile_pos_from_index(self, i: int, j: int) -> tuple[float, float]:
+        """_summary_
+
+        Args:
+            i (int): _description_
+            j (int): _description_
+
+        Returns:
+            tuple[float, float]: _description_
+        """
+        pass
+
+    def index_to_pixel(self, x: int, y: int) -> tuple[int, int]:
+        """Get the x and y pixel offsets relative to display surface of the tile at index position (x, y)
+
+        Args:
+            x (int): x coordinate of tile
+            y (int): y coordinate of tile
+
+        Returns:
+            tuple[int, int]: Position of the tile in x, y pixels relative to display surface
+        """
+        pass
+
+    def pixel_to_index(self, px: float, py: float) -> tuple[int, int]:
+        """Get the index of the tile which contains the pixel coordinate (px, py)
+
+        Args:
+            px (int): X axis pixel coordinate
+            py (int): Y axis pixel coordinate
+
+        Returns:
+            tuple[int, int]: Integer x, y index of the containing tile in the grid map
+        """
+        pass
+
+
+class SquareGrid(Grid):
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        self.highlight_image_path = "resources/map/highlight_grid.png"
+        self.hidden_image_path = "resources/map/grid.png"
+
+    def update(self, width, height):
+        self.x = int(width / self.pixel_density - 2 * self.x_margin)
+        self.y = int(height / self.pixel_density - 2 * self.y_margin)
+        self.matrix = [[0 for y in range(self.y)] for x in range(self.x)]
+
+    def scale_tiles(self):
+        self.tile_size = (
+            self.pixel_density / self.window.zoom,
+            self.pixel_density / self.window.zoom,
+        )
+
     def tile_pos_from_index(self, i: int, j: int) -> tuple[float, float]:
         (sx, sy) = self.window.surface.pos
         return (
@@ -124,15 +163,6 @@ class Grid:
         )
 
     def index_to_pixel(self, x: int, y: int) -> tuple[int, int]:
-        """Get the x and y pixel offsets relative to display surface of the tile at index position (x, y)
-
-        Args:
-            x (int): x coordinate of tile
-            y (int): y coordinate of tile
-
-        Returns:
-            tuple[int, int]: Position of the tile in x, y pixels relative to display surface
-        """
         px = (
             self.x_offset + (self.x_margin + x) * self.pixel_density
         ) / self.window.zoom - self.window.x
@@ -143,16 +173,6 @@ class Grid:
         return px, py
 
     def pixel_to_index(self, px: float, py: float) -> tuple[int, int]:
-        """Get the index of the tile which contains the pixel coordinate (px, py)
-
-        Args:
-            px (int): X axis pixel coordinate
-            py (int): Y axis pixel coordinate
-
-        Returns:
-            tuple[int, int]: Integer x, y index of the containing tile in the grid map
-        """
-
         x = (
             (px + self.window.x) * self.window.zoom - self.x_offset
         ) / self.pixel_density - self.x_margin
@@ -161,3 +181,63 @@ class Grid:
         ) / self.pixel_density - self.y_margin
 
         return (int(x), int(y))
+
+
+class HexGrid(Grid):
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        self.highlight_image_path = "resources/map/highlight.png"
+        self.hidden_image_path = "resources/map/hexes.png"
+
+    def scale_tiles(self):
+        self.tile_size = (
+            self.pixel_density * 2 / self.window.zoom,
+            self.pixel_density * 2 / self.window.zoom,
+        )
+
+    def update(self, width, height):
+        self.x = int((width / (2 * self.pixel_density) - 2 * self.x_margin))
+        self.y = int(
+            (height / (math.sqrt(3) * self.pixel_density / 2)) - 2 * self.y_margin
+        )
+        self.matrix = [[0 for y in range(self.y)] for x in range(self.x)]
+
+    def tile_pos_from_index(self, i: int, j: int) -> tuple[float, float]:
+        (sx, sy) = self.window.surface.pos
+        (px, py) = self.index_to_pixel(i, j)
+        return (sx + px, sy + py)
+
+    # TODO: Fix this. I hate this, but it works and I'm tired
+    def index_to_pixel(self, x: int, y: int) -> tuple[float, float]:
+
+        if y % 2 == 0:
+            grid_x = (x + self.x_margin) * 3 * self.pixel_density
+        else:
+            grid_x = ((x + self.x_margin) + 1 / 2) * 3 * self.pixel_density
+
+        px = (grid_x + self.x_offset) / self.window.zoom - self.window.x
+        py = (
+            (y + self.y_margin) * (math.sqrt(3) / 2) * self.pixel_density
+            + self.y_offset
+        ) / self.window.zoom - self.window.y
+
+        return px, py
+
+    # TODO: Fix this. I hate this, but it works and I'm tired
+    def pixel_to_index(self, px: float, py: float) -> tuple[int, int]:
+        y = ((py + self.window.y) * self.window.zoom - self.y_offset) / (
+            (math.sqrt(3) / 2) * self.pixel_density
+        ) - self.y_margin
+
+        x = ((px + self.window.x) * self.window.zoom - self.x_offset) / (
+            3 * self.pixel_density
+        ) - self.x_margin
+
+        if x % 1 < 1 / 2:
+            y = y - (int(y) % 2)
+        else:
+            y = y - (1 - (int(y) % 2))
+
+        return int(x), int(y)

@@ -4,8 +4,11 @@ from kivy.uix.image import Image
 from kivy.uix.widget import Widget
 from kivy.graphics import Rectangle
 
-from model.grid import Grid
+from model.grid import Grid, SquareGrid, HexGrid
 from model.window import Window
+
+GRID_TYPE_SQUARE = "square"
+GRID_TYPE_HEX = "hex"
 
 
 class Map:
@@ -17,7 +20,8 @@ class Map:
         self.height = 0
 
         self.window = Window()
-        self.grid = Grid(window=self.window)
+        self.grid: Grid = SquareGrid(window=self.window)
+        self.grid_type: str = GRID_TYPE_SQUARE
 
         self.load_image(map_file)
         self.tile: Image = Image(source="resources/map/highlight_grid.png")
@@ -54,9 +58,14 @@ class Map:
     def load(self, load_json):
         self.map_file = load_json["map_file"]
         self.window.zoom = load_json["zoom"]
-        self.grid.load(load_json["grid"])
-
         self.hidden_tiles = load_json["hidden"]
+        self.grid_type = load_json["grid_type"]
+
+        # Change from default (square) to hex if necessary
+        if load_json["grid_type"] is GRID_TYPE_HEX:
+            self.grid = HexGrid(window=self.window)
+
+        self.grid.load(load_json["grid"])
 
         self.load_image(self.map_file)
 
@@ -67,12 +76,42 @@ class Map:
         save_data["map_file"] = self.map_file
         save_data["zoom"] = self.window.zoom
         save_data["hidden"] = self.hidden_tiles
+        save_data["grid_type"] = self.grid_type
         save_data["grid"] = self.grid.save()
 
         return save_data
 
     def update(self):
         self.grid.update(self.width, self.height)
+
+    def toHex(self):
+
+        hexGrid = HexGrid(window=self.window)
+        self.changeGrid(self.grid, hexGrid)
+
+        self.grid_type = GRID_TYPE_HEX
+        self.grid = hexGrid
+        self.update()
+
+        self.grid.scale_tiles()
+
+    def toSquare(self):
+
+        squareGrid = SquareGrid(window=self.window)
+        self.changeGrid(self.grid, squareGrid)
+
+        self.grid_type = GRID_TYPE_SQUARE
+        self.grid = squareGrid
+        self.update()
+
+        self.grid.scale_tiles()
+
+    def changeGrid(self, oldGrid: Grid, newGrid: Grid):
+        newGrid.x = oldGrid.x
+        newGrid.y = oldGrid.y
+        newGrid.pixel_density = oldGrid.pixel_density
+        newGrid.x_offset = oldGrid.x_offset
+        newGrid.y_offset = oldGrid.y_offset
 
     def sparseTiles(self, interval: int):
         for i in range(self.grid.x):
@@ -91,7 +130,7 @@ class Map:
                 size=(self.window.surface.width, self.window.surface.height),
                 pos=self.window.surface.pos,
             )
-            self.sparseTiles(5)
+            self.sparseTiles(3)
 
             if self.hidden_tiles:
                 self.grid.drawHiddenTiles()
