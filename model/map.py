@@ -1,4 +1,5 @@
 import os
+import numpy
 
 from kivy.uix.image import Image
 from kivy.uix.widget import Widget
@@ -73,9 +74,14 @@ class Map:
         self.pixel_density = load_json["pixel_density"]
         self.zoom = load_json["zoom"]
         self.grid_matrix = load_json["grid_matrix"]
+        if len(self.grid_matrix) > 0:
+            self.grid_x = len(self.grid_matrix)
+            self.grid_y = len(self.grid_matrix[0])
+        else:
+            self.update_grid()
+        self.hidden_tiles = load_json["hidden"]
 
         self.load_image(self.map_file)
-        self.update_grid()
 
     def save(self):
         save_data = {}
@@ -87,6 +93,7 @@ class Map:
         save_data["pixel_density"] = self.pixel_density
         save_data["zoom"] = self.zoom
         save_data["grid_matrix"] = self.grid_matrix
+        save_data["hidden"] = self.hidden_tiles
 
         return save_data
 
@@ -98,7 +105,7 @@ class Map:
 
         self.grid_x = int(self.width / self.pixel_density - 2 * self.x_margin)
         self.grid_y = int(self.height / self.pixel_density - 2 * self.y_margin)
-        self.grid_matrix = [[0] * self.grid_y] * self.grid_x
+        self.grid_matrix = [[0 for y in range(self.grid_y)] for x in range(self.grid_x)]
 
     def scale_tiles(self):
         self.tile.size = (
@@ -147,12 +154,16 @@ class Map:
     def drawHiddenTiles(self, surface: Widget):
         for i in range(self.grid_x):
             for j in range(self.grid_y):
-                if self.grid_image[i][j] == 1:
+                if self.grid_matrix[i][j] == 1:
                     self.tileAtIndex(surface, "resources/map/grid.png", i, j)
 
-    # draw(self, surface: Widget, x: int, y: int)
     def drawSparse(self, surface: Widget) -> None:
         sub_texture = self.getSubTexture(surface)
+
+        i = 0
+        for row in self.grid_matrix[::-1]:
+            print(f"{i}: {row}")
+            i += 1
 
         surface.canvas.clear()
         with surface.canvas:
@@ -170,25 +181,21 @@ class Map:
     def draw(self, surface: Widget):
         pass
 
-    def flip_grid(self, x: int, y: int) -> None:
+    def flip_tile(self, x: int, y: int) -> None:
         """Invert the value of the grid tile at position x, y
 
         Args:
             x (int): Target tile x coordinate
             y (int): Target tile y coordinate
         """
-        selected_grid = self.get_grid(x, y)
-        print(selected_grid)
+        print(f"Flipping tile {x}, {y}")
 
-        if not selected_grid:
-            return
-
-        matrix_grid = self.grid_matrix[selected_grid[1]][selected_grid[0]]
+        matrix_grid = self.grid_matrix[x][y]
 
         if matrix_grid == 0:
-            self.grid_matrix[selected_grid[1]][selected_grid[0]] = 1
+            self.grid_matrix[x][y] = 1
         else:
-            self.grid_matrix[selected_grid[1]][selected_grid[0]] = 0
+            self.grid_matrix[x][y] = 0
 
     def index_to_pixel(self, x: int, y: int) -> tuple[int, int]:
         """Get the x and y pixel offsets relative to display surface of the tile at index position (x, y)
@@ -204,6 +211,27 @@ class Map:
         py = (self.grid_y_offset + (self.y_margin + y) * self.pixel_density) / self.zoom
 
         return px, py
+
+    def pixel_to_index(self, px: int, py: int) -> tuple[int, int]:
+        """Get the index of the tile which contains the pixel coordinate (px, py)
+
+        Args:
+            px (int): X axis pixel coordinate
+            py (int): Y axis pixel coordinate
+
+        Returns:
+            tuple[int, int]: Integer x, y index of the containing tile in the grid map
+        """
+
+        x = (px * self.zoom - self.grid_x_offset) / self.pixel_density - self.x_margin
+        y = (py * self.zoom - self.grid_y_offset) / self.pixel_density - self.y_margin
+
+        return (int(x), int(y))
+
+    def flip_at_coordinate(self, px: int, py: int):
+        (x, y) = self.pixel_to_index(px, py)
+
+        self.flip_tile(x, y)
 
     def get_grid(self, x, y):
         pass

@@ -10,17 +10,22 @@ class Campaign:
         self.save_path: str | os.PathLike = ""
         self.overworld: Map = None
         self.position: tuple[int, int] = (0, 0)
-        # self.locations: dict[tuple[int, int], Location] = None
+        # TODO: self.locations: dict[tuple[int, int], Location] = None
 
-    def save(self, out_path: str | os.PathLike) -> None:
+    def save(self, out_path: str | os.PathLike) -> None | Exception:
         data_dict = {}
         data_dict["name"] = self.name
         data_dict["position"] = self.position
         if self.overworld:
             data_dict["over_world"] = self.overworld.save()
 
+        try:
+            json_data = json.dumps(data_dict, indent=4, separators=(",", ": "))
+        except Exception as e:
+            return e
+
         with open(out_path, "w") as out_file:
-            out_file.write(json.dumps(data_dict, indent=4, separators=(",", ": ")))
+            out_file.write(json_data)
 
     def load(self, load_path: str | os.PathLike):
 

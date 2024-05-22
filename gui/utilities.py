@@ -74,6 +74,7 @@ class FileDialog(BoxLayout):
     ):
         super().__init__(orientation="vertical", **kwargs)
 
+        self._popup = None
         self.popup_title = popup_title
 
         fileChooser = FileChooserListView(path=path)
@@ -97,7 +98,11 @@ class FileDialog(BoxLayout):
         self.add_widget(buttonsLayout)
 
     def openDialog(self, ignored):
-        self._popup = Popup(title=self.popup_title, content=self, size_hint=(0.9, 0.9))
+        if self._popup is None:
+            self._popup = Popup(
+                title=self.popup_title, content=self, size_hint=(0.9, 0.9)
+            )
+
         self._popup.open()
 
     def closeDialog(self, ignored):

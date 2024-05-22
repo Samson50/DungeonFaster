@@ -2,6 +2,7 @@ import os
 import re
 
 from kivy.graphics import Color, Rectangle
+from kivy.input.motionevent import MotionEvent
 from kivy.uix.button import Button
 from kivy.uix.screenmanager import Screen, ScreenManager
 from kivy.uix.boxlayout import BoxLayout
@@ -35,7 +36,7 @@ class NewCampaignScreen(Screen):
             select_text="Save",
             popup_title="Save Campaign",
             on_select=self.onSaveCampaign,
-            path="/home/minalan/repos/DungeonFaster/campaigns",
+            path="campaigns",
         )
         self.saveDialog = saveDialog
 
@@ -43,7 +44,7 @@ class NewCampaignScreen(Screen):
             select_text="Load",
             popup_title="Load Campaign",
             on_select=self.onLoadCampaign,
-            path="/home/minalan/repos/DungeonFaster/campaigns",
+            path="campaigns",
         )
         self.loadDialog = loadDialog
 
@@ -89,15 +90,12 @@ class NewCampaignScreen(Screen):
 
     def onSaveCampaign(self, instance):
         saveFile = self.saveDialog.textInput.text
-        # TODO: try...
         self.campaign.save(saveFile)
 
         self.saveDialog.closeDialog(None)
 
     def onLoadCampaign(self, instance):
         loadFile = self.loadDialog.textInput.text
-        # TODO: try...
-        print(loadFile)
         self.loadDialog.closeDialog(None)
         try:
             self.campaign.load(loadFile)
@@ -106,17 +104,18 @@ class NewCampaignScreen(Screen):
             print(e)
             return
 
-        # Clear widgets from map_layout
-        self.map_layout.clear_widgets()
+        # Make sure we show hidden tiles if necessary
+        if self.map.hidden_tiles:
+            self.controls_layout.hidden_switch.active = True
 
-        # self.map.getZoomForSurface(self.map_layout)
+        # Display the map
+        self.map_layout.clear_widgets()
         self.map.drawSparse(self.map_layout)
 
     def selectOverworldMapDialog(self, instance):
         self.overworldMapDialog = FileDialog(
             popup_title="Select Overworld Map",
             on_select=self.saveOverworldMap,
-            path="/home/minalan/repos/DungeonFaster/example/chult",
         )
 
         self.overworldMapDialog.openDialog(None)
@@ -179,11 +178,54 @@ class ControllerLayout(BoxLayout):
         # Has hidden info: Switch
         hidden_switch_layout = BoxLayout(orientation="horizontal", size_hint=(1, 0.08))
         hidden_switch_layout.add_widget(Label(text="Has hidden areas"))
-        hidden_switch_layout.add_widget(Switch())
+        self.hidden_switch = Switch(active=False)
+        self.hidden_switch.bind(active=self.hidden_cb)
+        hidden_switch_layout.add_widget(self.hidden_switch)
         self.add_widget(hidden_switch_layout)
 
+        self.hide_buttons_layout = BoxLayout(
+            orientation="horizontal", size_hint=(1, 0.08)
+        )
+        all_on_button = Button(text="All On")
+        all_off_button = Button(text="All Off")
+        invert_button = Button(text="Invert Tiles")
+        self.hide_buttons_layout.add_widget(all_on_button)
+        self.hide_buttons_layout.add_widget(all_off_button)
+        self.hide_buttons_layout.add_widget(invert_button)
+
         # Empty layout for spacing
-        self.add_widget(BoxLayout(size_hint=(1, 0.4)))
+        self.empty_layout = BoxLayout(size_hint=(1, 0.4))
+        self.add_widget(self.empty_layout)
+
+    def hidden_cb(self, instance: Switch, state: bool):
+        if self.screen.map:
+            self.screen.map.hidden_tiles = state
+
+        if state:
+            # Add show tile buttons
+            self.remove_widget(self.empty_layout)
+            self.add_widget(self.hide_buttons_layout)
+            self.add_widget(self.empty_layout)
+            # Register on_click listener for self.screen.map_layout
+            self.screen.map_layout.bind(on_touch_down=self.tile_flip_cb)
+        else:
+            # Remove / hide tile buttons
+            self.remove_widget(self.hide_buttons_layout)
+            # Remove on_click listener
+            self.screen.map_layout.unbind(on_touch_down=self.tile_flip_cb)
+
+        self.screen.map.drawSparse(self.screen.map_layout)
+
+    def tile_flip_cb(self, layout: BoxLayout, event: MotionEvent):
+        print(f"Event at {event.pos}")
+        (mouse_x, mouse_y) = event.pos
+        (map_x, map_y) = self.screen.map_layout.pos
+        (map_width, map_height) = self.screen.map_layout.size
+
+        # Ensure touch is on the map, ignore otherwise
+        if map_x < mouse_x < map_x + map_width and map_y < mouse_y < map_y + map_height:
+            self.screen.map.flip_at_coordinate(mouse_x - map_x, mouse_y - map_y)
+            self.screen.map.drawSparse(self.screen.map_layout)
 
     def add_rocker_controller(self, name, on_plus, on_minus):
         rocker_box = BoxLayout(orientation="horizontal", size_hint=(1, 0.08))
