@@ -12,6 +12,7 @@ This is a work in progress.
 TODO
 
 ## Usage
+### Campaign Creation
 To use DungeonFaster, you first have to create a campaign using the DF GUI
 - Over-world map
   - Grid adjustment
@@ -21,6 +22,9 @@ To use DungeonFaster, you first have to create a campaign using the DF GUI
   - Over-world
   - Specific locations
   - Combat
+
+### Running a Campaign
+TODO
 
 ## Roadmap
 - [x] Main GUI

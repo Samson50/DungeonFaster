@@ -13,6 +13,7 @@ GRID_TYPE_HEX = "hex"
 
 class Map:
     def __init__(self, map_file: str = None):
+        # TODO: Down-sample very large high-resolution maps when screens are small and zoom is low
 
         self.map_file = map_file
         self.image = None
@@ -31,8 +32,11 @@ class Map:
         self.window.y = 0
         self.window.zoom = 1
 
-        # Matrix of integers representing revealed/hidden grid tiles
+        # Does this map use hidden tiles?
         self.hidden_tiles = False
+
+        # TODO: Maintain list of references to grid tiles currently on canvas
+        # self.drawn_tiles: list[Image] = []
 
     def load_image(self, map_file: str | os.PathLike):
         self.image = Image(source=map_file)
@@ -62,12 +66,12 @@ class Map:
         self.grid_type = load_json["grid_type"]
 
         # Change from default (square) to hex if necessary
-        if load_json["grid_type"] is GRID_TYPE_HEX:
+        if load_json["grid_type"] == GRID_TYPE_HEX:
             self.grid = HexGrid(window=self.window)
 
-        self.grid.load(load_json["grid"])
-
         self.load_image(self.map_file)
+
+        self.grid.load(load_json["grid"])
 
         self.grid.scale_tiles()
 
@@ -83,6 +87,7 @@ class Map:
 
     def update(self):
         self.grid.update(self.width, self.height)
+        self.grid.scale_tiles()
 
     def toHex(self):
 
@@ -118,7 +123,10 @@ class Map:
             if i % interval == 0 or i == self.grid.x - 1:
                 for j in range(self.grid.y):
                     if j % interval == 0 or j == self.grid.y - 1:
-                        self.grid.highlightAtIndex(i, j)
+                        if self.window.surface.collide_point(
+                            *self.grid.tile_pos_from_index(i, j)
+                        ):
+                            self.grid.highlightAtIndex(i, j)
 
     def drawSparse(self) -> None:
         sub_texture = self.window.getSubTexture(self.image)
@@ -127,8 +135,8 @@ class Map:
         with self.window.surface.canvas:
             Rectangle(
                 texture=sub_texture,
-                size=(self.window.surface.width, self.window.surface.height),
-                pos=self.window.surface.pos,
+                size=self.window.getRegionSize(),
+                pos=self.window.getRegionPos(),
             )
             self.sparseTiles(3)
 

@@ -1,3 +1,4 @@
+from kivy.graphics import Rectangle, Color
 from kivy.input.motionevent import MotionEvent
 from kivy.uix.button import Button
 from kivy.uix.screenmanager import Screen
@@ -10,6 +11,9 @@ from gui.utilities import FileDialog, LabeledIntInput
 
 from model.map import Map
 from model.campaign import Campaign
+
+DELTA_X_SHIFT = 15
+DELTA_Y_SHIFT = 15
 
 
 class NewCampaignScreen(Screen):
@@ -66,17 +70,22 @@ class NewCampaignScreen(Screen):
         editor_layout = BoxLayout(orientation="horizontal", size_hint=(1, 0.8))
         layout.add_widget(editor_layout)
 
-        self.controls_layout = ControllerLayout(self)
-        editor_layout.add_widget(self.controls_layout)
-
         self.map_layout = BoxLayout(orientation="vertical", size_hint=(0.7, 1))
         getMapButton = Button(text="Select Overworld Map")
         getMapButton.bind(on_release=self.selectOverworldMapDialog)
         self.map_layout.add_widget(getMapButton)
         editor_layout.add_widget(self.map_layout)
 
+        self.controls_layout = ControllerLayout(self)
+        editor_layout.add_widget(self.controls_layout)
+
         self.add_widget(layout)
         self.menuManager.add_widget(self)
+
+    # TODO: How to catch going full-screen?
+    def on_size(self, instance, value):
+        if self.map:
+            self.map.drawSparse()
 
     def onSaveCampaign(self, instance):
         saveFile = self.saveDialog.textInput.text
@@ -136,6 +145,11 @@ class ControllerLayout(BoxLayout):
 
     def __init__(self, screen: NewCampaignScreen, **kwargs):
         super().__init__(orientation="vertical", size_hint=(0.3, 1), **kwargs)
+
+        self.bg_color = Color(0.0, 0.0, 0.0)
+        self.bg_rect = Rectangle(size=self.size, pos=self.pos)
+        self.canvas.add(self.bg_color)
+        self.canvas.add(self.bg_rect)
 
         self.screen = screen
 
@@ -198,6 +212,11 @@ class ControllerLayout(BoxLayout):
         self.empty_layout = BoxLayout(size_hint=(1, 0.4))
         self.add_widget(self.empty_layout)
 
+    def on_size(self, instance, value):
+        # Re-draw black background
+        self.bg_rect.pos = self.pos
+        self.bg_rect.size = self.size
+
     def allOn(self, instance):
         for i in range(len(self.screen.map.grid.matrix)):
             for j in range(len(self.screen.map.grid.matrix[i])):
@@ -259,7 +278,6 @@ class ControllerLayout(BoxLayout):
         self.screen.map.drawSparse()
 
     def tile_flip_cb(self, layout: BoxLayout, event: MotionEvent):
-        print(f"Event at {event.pos}")
         (mouse_x, mouse_y) = event.pos
         (map_x, map_y) = self.screen.map_layout.pos
         (map_width, map_height) = self.screen.map_layout.size
@@ -285,36 +303,38 @@ class ControllerLayout(BoxLayout):
         if self.screen.map is None:
             return
         self.screen.map.window.zoom -= 1
+        self.screen.map.update()
         self.screen.map.drawSparse()
 
     def zoomOut(self, value: float):
         if self.screen.map is None:
             return
         self.screen.map.window.zoom += 1
+        self.screen.map.update()
         self.screen.map.drawSparse()
 
     def mapLeft(self, value: int) -> None:
         if self.screen.map is None:
             return
-        self.screen.map.window.x += 5
+        self.screen.map.window.x += DELTA_X_SHIFT
         self.screen.map.drawSparse()
 
     def mapRight(self, value: int) -> None:
         if self.screen.map is None:
             return
-        self.screen.map.window.x -= 5
+        self.screen.map.window.x -= DELTA_X_SHIFT
         self.screen.map.drawSparse()
 
     def mapUp(self, value: int) -> None:
         if self.screen.map is None:
             return
-        self.screen.map.window.y -= 5
+        self.screen.map.window.y -= DELTA_Y_SHIFT
         self.screen.map.drawSparse()
 
     def mapDown(self, value: int) -> None:
         if self.screen.map is None:
             return
-        self.screen.map.window.y += 5
+        self.screen.map.window.y += DELTA_Y_SHIFT
         self.screen.map.drawSparse()
 
     def setXOffset(self, value: float):
