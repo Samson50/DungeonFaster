@@ -1,5 +1,6 @@
 import math
 
+from kivy.graphics import Rectangle
 from kivy.uix.image import Image
 from kivy.uix.widget import Widget
 
@@ -24,8 +25,8 @@ class Grid:
         self.highlight_image_path = None
         self.hidden_image_path = None
 
-        # TODO: Maintain matrix of None or Image for tiles to be drawn
-        # self.image_matrix = None
+        # Matrix of None or Rectangle for tiles to be drawn
+        self.image_matrix: list[list[Rectangle]] = []
 
     def save(self) -> dict:
         save_data = {}
@@ -52,6 +53,26 @@ class Grid:
 
         self.scale_tiles()
 
+        for x in range(self.x):
+            self.image_matrix.append([])
+            for y in range(self.y):
+                if self.matrix[x][y] == 0:
+                    self.image_matrix[-1].append(None)
+                else:
+                    self.image_matrix[-1].append(
+                        Rectangle(
+                            source=self.hidden_image_path,
+                            pos=self.tile_pos_from_index(x, y),
+                            size=self.tile_size,
+                        )
+                    )
+
+    def updateTile(self, x: int, y: int):
+        tile = self.image_matrix[x][y]
+        if tile:
+            tile.pos = self.tile_pos_from_index(x, y)
+            tile.size = self.tile_size
+
     def tileAtIndex(self, source: str, i: int, j: int):
         Image(
             source=source,
@@ -68,21 +89,33 @@ class Grid:
                 if self.matrix[i][j] == 1:
                     self.tileAtIndex(self.hidden_image_path, i, j)
 
-    def flip_tile(self, x: int, y: int) -> None:
+    def flip_tile(self, x: int, y: int) -> Rectangle:
         """Invert the value of the grid tile at position x, y
 
         Args:
             x (int): Target tile x coordinate
             y (int): Target tile y coordinate
+
+        Returns:
+            Rectangle: Flipped tile image to be added or removed from caller's tracking list
         """
-        print(f"Flipping tile {x}, {y}")
 
         matrix_grid = self.matrix[x][y]
 
+        tile = self.image_matrix[x][y]
         if matrix_grid == 0:
             self.matrix[x][y] = 1
+            tile = Rectangle(
+                source=self.hidden_image_path,
+                pos=self.tile_pos_from_index(x, y),
+                size=self.tile_size,
+            )
+            self.image_matrix[x][y] = tile
         else:
             self.matrix[x][y] = 0
+            self.image_matrix[x][y] = None
+
+        return tile
 
     # ==== Override methods ==== #
 

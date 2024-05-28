@@ -20,6 +20,7 @@ class NewCampaignScreen(Screen):
 
     def __init__(self, manager: MenuManager, **kwargs):
         super().__init__(name="NewCampaign")
+        # TODO: Add campaign_name text input box
 
         self.menuManager = manager
         self.fileChooser = None
@@ -85,7 +86,7 @@ class NewCampaignScreen(Screen):
     # TODO: How to catch going full-screen?
     def on_size(self, instance, value):
         if self.map:
-            self.map.drawSparse()
+            self.map.draw()
 
     def onSaveCampaign(self, instance):
         saveFile = self.saveDialog.textInput.text
@@ -97,7 +98,7 @@ class NewCampaignScreen(Screen):
         loadFile = self.loadDialog.textInput.text
         self.loadDialog.closeDialog(None)
         try:
-            self.campaign.load(loadFile)
+            self.campaign.load(loadFile, self.map_layout)
             self.map = self.campaign.overworld
         except Exception as e:
             print(e)
@@ -108,14 +109,13 @@ class NewCampaignScreen(Screen):
 
         # Prepare to display map
         self.map_layout.clear_widgets()
-        self.map.window.surface = self.map_layout
 
         # Make sure we show hidden tiles if necessary
         if self.map.hidden_tiles:
             self.controls_layout.hidden_switch.active = True
         else:
             # Activating switch will re-draw map otherwise
-            self.map.drawSparse()
+            self.map.draw()
 
     def selectOverworldMapDialog(self, instance):
         self.overworldMapDialog = FileDialog(
@@ -138,7 +138,7 @@ class NewCampaignScreen(Screen):
         self.campaign.overworld = self.map
 
         self.map.getZoomForSurface(self.map_layout)
-        self.map.drawSparse()
+        self.map.draw()
 
 
 class ControllerLayout(BoxLayout):
@@ -208,6 +208,9 @@ class ControllerLayout(BoxLayout):
         self.hide_buttons_layout.add_widget(all_off_button)
         self.hide_buttons_layout.add_widget(invert_button)
 
+        # TODO: Add "add_location" button
+        # TODO: Add "add_music" button
+
         # Empty layout for spacing
         self.empty_layout = BoxLayout(size_hint=(1, 0.4))
         self.add_widget(self.empty_layout)
@@ -221,13 +224,13 @@ class ControllerLayout(BoxLayout):
         for i in range(len(self.screen.map.grid.matrix)):
             for j in range(len(self.screen.map.grid.matrix[i])):
                 self.screen.map.grid.matrix[i][j] = 1
-        self.screen.map.drawSparse()
+        self.screen.map.draw()
 
     def allOff(self, instance):
         for i in range(len(self.screen.map.grid.matrix)):
             for j in range(len(self.screen.map.grid.matrix[i])):
                 self.screen.map.grid.matrix[i][j] = 0
-        self.screen.map.drawSparse()
+        self.screen.map.draw()
 
     def invertTiles(self, instance):
         for i in range(len(self.screen.map.grid.matrix)):
@@ -235,7 +238,7 @@ class ControllerLayout(BoxLayout):
                 self.screen.map.grid.matrix[i][j] = abs(
                     self.screen.map.grid.matrix[i][j] - 1
                 )
-        self.screen.map.drawSparse()
+        self.screen.map.draw()
 
     def update_from_map(self, map: Map):
         self.density_controller.input.text = str(map.grid.pixel_density)
@@ -256,7 +259,7 @@ class ControllerLayout(BoxLayout):
         else:
             self.screen.map.toSquare()
 
-        self.screen.map.drawSparse()
+        self.screen.map.draw()
 
     def hidden_cb(self, instance: Switch, state: bool):
         if self.screen.map:
@@ -275,7 +278,7 @@ class ControllerLayout(BoxLayout):
             # Remove on_click listener
             self.screen.map_layout.unbind(on_touch_down=self.tile_flip_cb)
 
-        self.screen.map.drawSparse()
+        self.screen.map.draw()
 
     def tile_flip_cb(self, layout: BoxLayout, event: MotionEvent):
         (mouse_x, mouse_y) = event.pos
@@ -285,7 +288,7 @@ class ControllerLayout(BoxLayout):
         # Ensure touch is on the map, ignore otherwise
         if map_x < mouse_x < map_x + map_width and map_y < mouse_y < map_y + map_height:
             self.screen.map.flip_at_coordinate(mouse_x - map_x, mouse_y - map_y)
-            self.screen.map.drawSparse()
+            self.screen.map.draw()
 
     def add_rocker_controller(self, name, on_plus, on_minus):
         rocker_box = BoxLayout(orientation="horizontal", size_hint=(1, 0.08))
@@ -304,68 +307,68 @@ class ControllerLayout(BoxLayout):
             return
         self.screen.map.window.zoom -= 1
         self.screen.map.update()
-        self.screen.map.drawSparse()
+        self.screen.map.draw()
 
     def zoomOut(self, value: float):
         if self.screen.map is None:
             return
         self.screen.map.window.zoom += 1
         self.screen.map.update()
-        self.screen.map.drawSparse()
+        self.screen.map.draw()
 
     def mapLeft(self, value: int) -> None:
         if self.screen.map is None:
             return
         self.screen.map.window.x += DELTA_X_SHIFT
-        self.screen.map.drawSparse()
+        self.screen.map.draw()
 
     def mapRight(self, value: int) -> None:
         if self.screen.map is None:
             return
         self.screen.map.window.x -= DELTA_X_SHIFT
-        self.screen.map.drawSparse()
+        self.screen.map.draw()
 
     def mapUp(self, value: int) -> None:
         if self.screen.map is None:
             return
         self.screen.map.window.y -= DELTA_Y_SHIFT
-        self.screen.map.drawSparse()
+        self.screen.map.draw()
 
     def mapDown(self, value: int) -> None:
         if self.screen.map is None:
             return
         self.screen.map.window.y += DELTA_Y_SHIFT
-        self.screen.map.drawSparse()
+        self.screen.map.draw()
 
     def setXOffset(self, value: float):
         if self.screen.map is None:
             return
         self.screen.map.grid.x_offset = value
-        self.screen.map.drawSparse()
+        self.screen.map.draw()
 
     def setYOffset(self, value: float):
         if self.screen.map is None:
             return
         self.screen.map.grid.y_offset = value
-        self.screen.map.drawSparse()
+        self.screen.map.draw()
 
     def setXMargin(self, value: float):
         if self.screen.map is None:
             return
         self.screen.map.grid.x_margin = value
         self.screen.map.update()
-        self.screen.map.drawSparse()
+        self.screen.map.draw()
 
     def setYMargin(self, value: float):
         if self.screen.map is None:
             return
         self.screen.map.grid.y_margin = value
         self.screen.map.update()
-        self.screen.map.drawSparse()
+        self.screen.map.draw()
 
     def setDensity(self, value: float):
         if self.screen.map is None:
             return
         self.screen.map.grid.pixel_density = value
         self.screen.map.update()
-        self.screen.map.drawSparse()
+        self.screen.map.draw()

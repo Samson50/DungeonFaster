@@ -35,8 +35,9 @@ class Map:
         # Does this map use hidden tiles?
         self.hidden_tiles = False
 
-        # TODO: Maintain list of references to grid tiles currently on canvas
-        # self.drawn_tiles: list[Image] = []
+        # List of references to grid tiles currently on canvas
+        self.drawn_tiles: list[Image] = []
+        self.map_rect: Rectangle = None
 
     def load_image(self, map_file: str | os.PathLike):
         self.image = Image(source=map_file)
@@ -59,7 +60,8 @@ class Map:
             self.window.surface.height * self.window.zoom,
         )
 
-    def load(self, load_json):
+    def load(self, load_json: str, surface: Widget):
+        self.window.surface = surface
         self.map_file = load_json["map_file"]
         self.window.zoom = load_json["zoom"]
         self.hidden_tiles = load_json["hidden"]
@@ -73,7 +75,7 @@ class Map:
 
         self.grid.load(load_json["grid"])
 
-        self.grid.scale_tiles()
+        # self.grid.scale_tiles()
 
     def save(self):
         save_data = {}
@@ -87,7 +89,7 @@ class Map:
 
     def update(self):
         self.grid.update(self.width, self.height)
-        self.grid.scale_tiles()
+        # self.grid.scale_tiles()
 
     def toHex(self):
 
@@ -98,8 +100,6 @@ class Map:
         self.grid = hexGrid
         self.update()
 
-        self.grid.scale_tiles()
-
     def toSquare(self):
 
         squareGrid = SquareGrid(window=self.window)
@@ -109,8 +109,6 @@ class Map:
         self.grid = squareGrid
         self.update()
 
-        self.grid.scale_tiles()
-
     def changeGrid(self, oldGrid: Grid, newGrid: Grid):
         newGrid.x = oldGrid.x
         newGrid.y = oldGrid.y
@@ -118,38 +116,56 @@ class Map:
         newGrid.x_offset = oldGrid.x_offset
         newGrid.y_offset = oldGrid.y_offset
 
-    def sparseTiles(self, interval: int):
-        for i in range(self.grid.x):
-            if i % interval == 0 or i == self.grid.x - 1:
-                for j in range(self.grid.y):
-                    if j % interval == 0 or j == self.grid.y - 1:
-                        if self.window.surface.collide_point(
-                            *self.grid.tile_pos_from_index(i, j)
-                        ):
-                            self.grid.highlightAtIndex(i, j)
+    def drawMap(self) -> None:
 
-    def drawSparse(self) -> None:
-        sub_texture = self.window.getSubTexture(self.image)
+        texture = self.window.getSubTexture(self.image)
+        pos = self.window.getRegionPos()
+        size = self.window.getRegionSize()
+        if self.map_rect is None:
+            self.map_rect = Rectangle(texture=texture, size=size, pos=pos)
+            self.window.surface.canvas.add(self.map_rect)
+        else:
+            self.map_rect.texture = texture
+            self.map_rect.pos = pos
+            self.map_rect.size = size
 
-        self.window.surface.canvas.clear()
-        with self.window.surface.canvas:
-            Rectangle(
-                texture=sub_texture,
-                size=self.window.getRegionSize(),
-                pos=self.window.getRegionPos(),
-            )
-            self.sparseTiles(3)
+    def drawTiles(self):
+        self.grid.scale_tiles()
 
-            if self.hidden_tiles:
-                self.grid.drawHiddenTiles()
+        # Check if tiles need to be added/removed
+        for x in range(self.grid.x):
+            for y in range(self.grid.y):
+                # Obscuration tile at index
+                tile = self.grid.image_matrix[x][y]
+                if tile is not None:
+                    # Tile is within display window (mostly)
+                    center = (
+                        tile.pos[0] + tile.size[0] / 2,
+                        tile.pos[1] + tile.size[1] / 2,
+                    )
+                    if self.window.surface.collide_point(*center):
+                        # Has the tile been drawn already?
+                        if tile not in self.drawn_tiles:
+                            # Add to canvas and tracking list
+                            self.window.surface.canvas.add(tile)
+                            self.drawn_tiles.append(tile)
+                    self.grid.updateTile(x, y)
 
-    def flip_at_coordinate(self, px: float, py: float):
+    def flip_at_coordinate(self, px: float, py: float) -> None:
         (x, y) = self.grid.pixel_to_index(px, py)
 
-        self.grid.flip_tile(x, y)
+        tile = self.grid.flip_tile(x, y)
+        if tile in self.drawn_tiles:
+            self.drawn_tiles.remove(tile)
+            self.window.surface.canvas.remove(tile)
+        else:
+            self.drawn_tiles.append(tile)
+            self.window.surface.canvas.add(tile)
 
-    def draw(self, surface: Widget):
-        pass
+    def draw(self):
+        self.drawMap()
+        self.drawTiles()
+        # TODO: self.drawObjects()
 
     def get_grid(self, x, y):
         pass

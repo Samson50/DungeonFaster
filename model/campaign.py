@@ -1,6 +1,8 @@
 import os
 import json
 
+from kivy.uix.widget import Widget
+
 from model.map import Map
 
 
@@ -27,7 +29,7 @@ class Campaign:
         with open(out_path, "w") as out_file:
             out_file.write(json_data)
 
-    def load(self, load_path: str | os.PathLike):
+    def load(self, load_path: str | os.PathLike, surface: Widget):
 
         with open(load_path, "r") as load_file:
             string_data = load_file.read()
@@ -37,4 +39,4 @@ class Campaign:
         self.position = load_data["position"]
 
         self.overworld = Map(load_data["over_world"]["map_file"])
-        self.overworld.load(load_data["over_world"])
+        self.overworld.load(load_data["over_world"], surface)
