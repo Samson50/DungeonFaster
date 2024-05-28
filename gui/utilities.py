@@ -109,5 +109,4 @@ class FileDialog(BoxLayout):
         self._popup.dismiss()
 
     def set_text(self, obj, val):
-        print(obj, val)
         self.textInput.text = val[0]

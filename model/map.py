@@ -36,10 +36,12 @@ class Map:
         self.hidden_tiles = False
 
         # List of references to grid tiles currently on canvas
-        self.drawn_tiles: list[Image] = []
+        self.drawn_tiles: list[Rectangle] = []
         self.map_rect: Rectangle = None
 
     def load_image(self, map_file: str | os.PathLike):
+        if map_file is None:
+            return
         self.image = Image(source=map_file)
         (self.width, self.height) = self.image.texture.size
         if self.grid.matrix is None:
@@ -51,14 +53,6 @@ class Map:
             self.window.zoom = self.width / surface.width
         else:
             self.window.zoom = self.height / surface.height
-
-    def getSubTexture(self):
-        return self.image.texture.get_region(
-            self.window.x * self.window.zoom,
-            self.window.y * self.window.zoom,
-            self.window.surface.width * self.window.zoom,
-            self.window.surface.height * self.window.zoom,
-        )
 
     def load(self, load_json: str, surface: Widget):
         self.window.surface = surface
@@ -89,7 +83,9 @@ class Map:
 
     def update(self):
         self.grid.update(self.width, self.height)
-        # self.grid.scale_tiles()
+        for tile in self.drawn_tiles:
+            self.window.surface.canvas.remove(tile)
+        self.drawn_tiles = []
 
     def toHex(self):
 
@@ -155,6 +151,7 @@ class Map:
         (x, y) = self.grid.pixel_to_index(px, py)
 
         tile = self.grid.flip_tile(x, y)
+
         if tile in self.drawn_tiles:
             self.drawn_tiles.remove(tile)
             self.window.surface.canvas.remove(tile)

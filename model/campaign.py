@@ -3,6 +3,7 @@ import json
 
 from kivy.uix.widget import Widget
 
+from model.location import Location
 from model.map import Map
 
 
@@ -12,7 +13,7 @@ class Campaign:
         self.save_path: str | os.PathLike = ""
         self.overworld: Map = None
         self.position: tuple[int, int] = (0, 0)
-        # TODO: self.locations: dict[tuple[int, int], Location] = None
+        self.locations: dict[tuple[int, int], Location] = {}
 
     def save(self, out_path: str | os.PathLike) -> None | Exception:
         data_dict = {}
@@ -20,6 +21,11 @@ class Campaign:
         data_dict["position"] = self.position
         if self.overworld:
             data_dict["over_world"] = self.overworld.save()
+
+        locations_dict = {}
+        for location in self.locations.keys():
+            locations_dict[str(location)] = self.locations[location].save()
+        data_dict["locations"] = locations_dict
 
         try:
             json_data = json.dumps(data_dict, indent=4, separators=(",", ": "))
@@ -40,3 +46,12 @@ class Campaign:
 
         self.overworld = Map(load_data["over_world"]["map_file"])
         self.overworld.load(load_data["over_world"], surface)
+
+        for location in load_data["locations"].keys():
+            new_index = eval(load_data["locations"][location]["index"])
+            new_name = load_data["locations"][location]["name"]
+            new_location = Location(new_name, new_index[0], new_index[1])
+            new_location.load(load_data["locations"][location], surface)
+
+    def goToLocation(self, x: int, y: int) -> None:
+        pass

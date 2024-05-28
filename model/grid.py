@@ -54,17 +54,14 @@ class Grid:
         self.scale_tiles()
 
         for x in range(self.x):
-            self.image_matrix.append([])
             for y in range(self.y):
                 if self.matrix[x][y] == 0:
-                    self.image_matrix[-1].append(None)
+                    self.image_matrix[x][y] = None
                 else:
-                    self.image_matrix[-1].append(
-                        Rectangle(
-                            source=self.hidden_image_path,
-                            pos=self.tile_pos_from_index(x, y),
-                            size=self.tile_size,
-                        )
+                    self.image_matrix[x][y] = Rectangle(
+                        source=self.hidden_image_path,
+                        pos=self.tile_pos_from_index(x, y),
+                        size=self.tile_size,
                     )
 
     def updateTile(self, x: int, y: int):
@@ -178,7 +175,8 @@ class SquareGrid(Grid):
         self.x = int(width / self.pixel_density - 2 * self.x_margin)
         self.y = int(height / self.pixel_density - 2 * self.y_margin)
         self.matrix = [[0 for y in range(self.y)] for x in range(self.x)]
-        # self.image_matrix = [[None for y in range(self.y)] for x in range(self.x)]
+        if len(self.image_matrix) == 0:
+            self.image_matrix = [[None for y in range(self.y)] for x in range(self.x)]
 
     def scale_tiles(self):
         self.tile_size = (
@@ -240,7 +238,8 @@ class HexGrid(Grid):
             (height / (math.sqrt(3) * self.pixel_density / 2)) - 2 * self.y_margin
         )
         self.matrix = [[0 for y in range(self.y)] for x in range(self.x)]
-        # self.image_matrix = [[None for y in range(self.y)] for x in range(self.x)]
+        if len(self.image_matrix) == 0:
+            self.image_matrix = [[None for y in range(self.y)] for x in range(self.x)]
 
     def tile_pos_from_index(self, i: int, j: int) -> tuple[float, float]:
         (sx, sy) = self.window.surface.pos
