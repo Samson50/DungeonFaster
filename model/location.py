@@ -7,7 +7,7 @@ from model.map import Map
 
 class Location:
     def __init__(self, name: str, x: int, y: int):
-        self.parent = None
+        self.parent: Location = None
         self.name: str = name
         self.map: Map = Map()
         self.index: tuple[int, int] = (x, y)
@@ -44,3 +44,4 @@ class Location:
             new_name = load_json["locations"][location]["name"]
             new_location = Location(new_name, new_index[0], new_index[1])
             new_location.load(load_json["locations"][location], surface)
+            new_location.parent = self

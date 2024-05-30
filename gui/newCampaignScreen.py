@@ -69,6 +69,22 @@ class CollapseItem(AccordionItem):
         self.list_layout.size_hint = (1, 0.5 * n_children)
 
 
+class EditableListEntry(BoxLayout):
+    def __init__(self, name: str, thing, edit_cb, delete_cb, **kwargs):
+        super().__init__(orientation="horizontal", **kwargs)
+
+        self.thing = thing
+
+        self.label = Label(text=name, size_hint=(0.5, 1))
+        self.add_widget(self.label)
+        self.edit_button = Button(text="edit", size_hint=(0.25, 1))
+        self.edit_button.bind(on_release=edit_cb)
+        self.add_widget(self.edit_button)
+        self.delete_button = Button(text="delete", size_hint=(0.25, 1))
+        self.delete_button.bind(on_release=delete_cb)
+        self.add_widget(self.delete_button)
+
+
 class NewCampaignScreen(Screen):
 
     def __init__(self, manager: MenuManager, **kwargs):
@@ -147,8 +163,30 @@ class NewCampaignScreen(Screen):
         if self.map:
             self.map.draw()
 
+    def changeMap(self, map: Map):
+        self.map = map
+
+        self.map_layout.canvas.clear()
+        self.map.drawn_tiles = []
+        self.map.map_rect = None
+        self.map.getZoomForSurface(self.map_layout)
+        self.map.draw()
+        # TODO: Set controller layout values from map
+
     def location_back_cb(self, instance):
-        print("working...")
+        location = self.current_location
+
+        self.current_location = location.parent
+        if location.parent is None:
+            # Back to overworld
+            self.changeMap(self.campaign.overworld)
+
+            # Remove back button
+            self.remove_widget(self.location_back_button)
+
+            # TODO: Set music and items list items
+        else:
+            self.toLocation(location.parent)
 
     def onSaveCampaign(self, instance):
         saveFile = self.saveDialog.textInput.text
@@ -179,7 +217,72 @@ class NewCampaignScreen(Screen):
             # Activating switch will re-draw map otherwise
             self.map.draw()
 
-        # TODO: NEXT Add any loaded locations to self.controls_layout.locations_list
+        # Add any loaded locations to self.controls_layout.locations_list
+        for location_index in self.campaign.locations.keys():
+            self.addLocationEntry(self.campaign.locations[location_index])
+
+    def addLocationEntry(self, location: Location):
+        new_location_entry = EditableListEntry(
+            f"{location.index}\n{os.path.basename(location.map.map_file)}",
+            location,
+            self.edit_location_cb,
+            self.delete_location_cb,
+        )
+
+        children = self.controls_layout.locations_list.list_layout.children
+        n_children = len(children)
+
+        # Do we still have placeholders?
+        replace_index = None
+        for child in children:
+            if child.__class__.__name__ == "Label":
+                replace_index = children.index(child)
+
+        if not replace_index:
+            replace_index = n_children
+        else:
+            self.controls_layout.locations_list.list_layout.remove_widget(
+                children[replace_index]
+            )
+
+        self.controls_layout.locations_list.list_layout.add_widget(
+            new_location_entry, replace_index
+        )
+
+    def toLocation(self, location: Location):
+        self.current_location = location
+
+        # TODO: Set music and item collapse view items
+
+        # Add back button to go back to higher location
+        if self.location_back_button is None:
+            self.location_back_button = Button(
+                text="Back",
+                top=self.map_layout.top,
+                x=self.map_layout.x,
+                size_hint=(0.2, 0.1),
+            )
+            self.location_back_button.bind(on_release=self.location_back_cb)
+            self.add_widget(self.location_back_button)
+
+        self.changeMap(location.map)
+
+    def edit_location_cb(self, instance: Button):
+        parent: EditableListEntry = instance.parent
+        self.toLocation(parent.thing)
+
+    def delete_location_cb(self, instance: Button):
+        parent: EditableListEntry = instance.parent
+        location: Location = parent.thing
+        # TODO: Remove location from which ever location contains it
+        index = self.controls_layout.locations_list.list_layout.children.index(parent)
+        self.controls_layout.locations_list.list_layout.remove_widget(parent)
+        self.controls_layout.locations_list.list_layout.add_widget(
+            Label(text="Deleted..."), index
+        )
+
+    def dummy(self, ignored):
+        print("asdf")
 
     def selectOverworldMapDialog(self, instance):
         self.overworldMapDialog = FileDialog(
@@ -347,29 +450,12 @@ class ControllerLayout(BoxLayout):
             self.screen.current_location.locations[(self.new_x, self.new_y)] = (
                 new_location
             )
-        self.screen.current_location = new_location
+        self.current_location = new_location
 
-        # Set current map to new location's map
-        self.screen.map = self.screen.current_location.map
-        # TODO: Set controller values to default
+        self.screen.toLocation(new_location)
 
-        # Add back button to go back to higher location
-        self.screen.location_back_button = Button(
-            text="Back",
-            top=self.screen.map_layout.top,
-            x=self.screen.map_layout.x,
-            size_hint=(0.2, 0.1),
-        )
-        self.screen.location_back_button.bind(on_release=self.screen.location_back_cb)
-        self.screen.add_widget(self.screen.location_back_button)
-
-        # Update map for display
-        self.screen.map_layout.canvas.clear()
-        self.screen.map.getZoomForSurface(self.screen.map_layout)
-        self.screen.map.update()
-        self.screen.map.draw()
-
-        # TODO: NEXT Replace "Selecting location..." label with CollapseEntry instance for the new location
+        # Replace "Selecting location..." label with CollapseEntry instance for the new location
+        self.screen.addLocationEntry(new_location)
 
     def add_music_cb(self, instance):
         pass
@@ -382,21 +468,21 @@ class ControllerLayout(BoxLayout):
     def allOn(self, instance):
         for i in range(len(self.screen.map.grid.matrix)):
             for j in range(len(self.screen.map.grid.matrix[i])):
-                self.screen.map.grid.matrix[i][j] = 1
+                if self.screen.map.grid.matrix[i][j] == 0:
+                    self.screen.map.grid.flip_tile(i, j)
         self.screen.map.draw()
 
     def allOff(self, instance):
         for i in range(len(self.screen.map.grid.matrix)):
             for j in range(len(self.screen.map.grid.matrix[i])):
-                self.screen.map.grid.matrix[i][j] = 0
+                if self.screen.map.grid.matrix[i][j] == 1:
+                    self.screen.map.grid.flip_tile(i, j)
         self.screen.map.draw()
 
     def invertTiles(self, instance):
         for i in range(len(self.screen.map.grid.matrix)):
             for j in range(len(self.screen.map.grid.matrix[i])):
-                self.screen.map.grid.matrix[i][j] = abs(
-                    self.screen.map.grid.matrix[i][j] - 1
-                )
+                self.screen.map.grid.flip_tile(i, j)
         self.screen.map.draw()
 
     def update_from_map(self, map: Map):

@@ -133,6 +133,9 @@ class Map:
             for y in range(self.grid.y):
                 # Obscuration tile at index
                 tile = self.grid.image_matrix[x][y]
+                if self.grid.matrix[x][y] == 1 and tile is None:
+                    tile = self.grid.flip_tile(x, y)
+
                 if tile is not None:
                     # Tile is within display window (mostly)
                     center = (
@@ -145,6 +148,9 @@ class Map:
                             # Add to canvas and tracking list
                             self.window.surface.canvas.add(tile)
                             self.drawn_tiles.append(tile)
+                    elif tile in self.drawn_tiles:
+                        self.window.surface.canvas.remove(tile)
+                        self.drawn_tiles.remove(tile)
                     self.grid.updateTile(x, y)
 
     def flip_at_coordinate(self, px: float, py: float) -> None:

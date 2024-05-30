@@ -109,6 +109,11 @@ class Grid:
             )
             self.image_matrix[x][y] = tile
         else:
+            try:
+                self.window.surface.canvas.remove(tile)
+            except:
+                # Ignore attempts to remove tiles not currently displayed
+                pass
             self.matrix[x][y] = 0
             self.image_matrix[x][y] = None
 
@@ -175,8 +180,8 @@ class SquareGrid(Grid):
         self.x = int(width / self.pixel_density - 2 * self.x_margin)
         self.y = int(height / self.pixel_density - 2 * self.y_margin)
         self.matrix = [[0 for y in range(self.y)] for x in range(self.x)]
-        if len(self.image_matrix) == 0:
-            self.image_matrix = [[None for y in range(self.y)] for x in range(self.x)]
+        # if len(self.image_matrix) == 0:
+        self.image_matrix = [[None for y in range(self.y)] for x in range(self.x)]
 
     def scale_tiles(self):
         self.tile_size = (
@@ -238,8 +243,8 @@ class HexGrid(Grid):
             (height / (math.sqrt(3) * self.pixel_density / 2)) - 2 * self.y_margin
         )
         self.matrix = [[0 for y in range(self.y)] for x in range(self.x)]
-        if len(self.image_matrix) == 0:
-            self.image_matrix = [[None for y in range(self.y)] for x in range(self.x)]
+        # if len(self.image_matrix) == 0:
+        self.image_matrix = [[None for y in range(self.y)] for x in range(self.x)]
 
     def tile_pos_from_index(self, i: int, j: int) -> tuple[float, float]:
         (sx, sy) = self.window.surface.pos

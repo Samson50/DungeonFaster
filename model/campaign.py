@@ -52,6 +52,7 @@ class Campaign:
             new_name = load_data["locations"][location]["name"]
             new_location = Location(new_name, new_index[0], new_index[1])
             new_location.load(load_data["locations"][location], surface)
+            self.locations[new_index] = new_location
 
     def goToLocation(self, x: int, y: int) -> None:
         pass
