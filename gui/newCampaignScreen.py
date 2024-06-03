@@ -2,8 +2,7 @@ import os
 
 from kivy.graphics import Rectangle, Color
 from kivy.input.motionevent import MotionEvent
-from kivy.uix.accordion import Accordion, AccordionItem
-from kivy.uix.scrollview import ScrollView
+from kivy.uix.accordion import Accordion
 from kivy.uix.button import Button
 from kivy.uix.screenmanager import Screen
 from kivy.uix.boxlayout import BoxLayout
@@ -11,7 +10,7 @@ from kivy.uix.label import Label
 from kivy.uix.switch import Switch
 
 from gui.menuManager import MenuManager
-from gui.utilities import FileDialog, LabeledIntInput
+from gui.utilities import FileDialog, LabeledIntInput, EditableListEntry, CollapseItem
 
 from model.location import Location
 from model.map import Map
@@ -19,70 +18,6 @@ from model.campaign import Campaign
 
 DELTA_X_SHIFT = 15
 DELTA_Y_SHIFT = 15
-
-
-class CollapseItem(AccordionItem):
-    def __init__(self, add_title: str, add_cb, **kwargs):
-        super().__init__(**kwargs)
-        self.add_cb = add_cb
-
-        self.scroll_view = ScrollView(do_scroll_x=False, size_hint=(1, 1))
-
-        self.list_layout = BoxLayout(
-            orientation="vertical",
-            size_hint=(1, 2),
-        )
-
-        # Add item button
-        self.new_item_button = Button(text=add_title)
-        self.new_item_button.bind(on_release=self._add_cb)
-        self.list_layout.add_widget(self.new_item_button)
-
-        # Add placeholder items
-        for x in range(4):
-            self.list_layout.add_widget(Label(text=f"Placeholder {x}"))
-
-        self.scroll_view.add_widget(self.list_layout)
-
-        self.add_widget(self.scroll_view)
-
-    # TODO: Resizes on scroll, but we need to resize on item addition
-    def _add_cb(self, instance):
-        children = self.list_layout.children
-        n_children = len(children)
-
-        # Do we still have placeholders?
-        replace_index = None
-        if n_children == 5:
-            for child in children:
-                if child.__class__.__name__ == "Label":
-                    replace_index = children.index(child)
-
-        new_thing = self.add_cb(instance)
-
-        if replace_index:
-            self.list_layout.remove_widget(children[replace_index])
-            self.list_layout.add_widget(new_thing, replace_index)
-        else:
-            self.list_layout.add_widget(new_thing)
-
-        self.list_layout.size_hint = (1, 0.5 * n_children)
-
-
-class EditableListEntry(BoxLayout):
-    def __init__(self, name: str, thing, edit_cb, delete_cb, **kwargs):
-        super().__init__(orientation="horizontal", **kwargs)
-
-        self.thing = thing
-
-        self.label = Label(text=name, size_hint=(0.5, 1))
-        self.add_widget(self.label)
-        self.edit_button = Button(text="edit", size_hint=(0.25, 1))
-        self.edit_button.bind(on_release=edit_cb)
-        self.add_widget(self.edit_button)
-        self.delete_button = Button(text="delete", size_hint=(0.25, 1))
-        self.delete_button.bind(on_release=delete_cb)
-        self.add_widget(self.delete_button)
 
 
 class NewCampaignScreen(Screen):
@@ -185,6 +120,10 @@ class NewCampaignScreen(Screen):
             self.remove_widget(self.location_back_button)
 
             # TODO: Set music and items list items
+            # Replace sub-locations with entries from new location
+            self.controls_layout.locations_list.clearList()
+            for index in self.campaign.locations.keys():
+                self.addLocationEntry(self.campaign.locations[index])
         else:
             self.toLocation(location.parent)
 
@@ -229,25 +168,7 @@ class NewCampaignScreen(Screen):
             self.delete_location_cb,
         )
 
-        children = self.controls_layout.locations_list.list_layout.children
-        n_children = len(children)
-
-        # Do we still have placeholders?
-        replace_index = None
-        for child in children:
-            if child.__class__.__name__ == "Label":
-                replace_index = children.index(child)
-
-        if not replace_index:
-            replace_index = n_children
-        else:
-            self.controls_layout.locations_list.list_layout.remove_widget(
-                children[replace_index]
-            )
-
-        self.controls_layout.locations_list.list_layout.add_widget(
-            new_location_entry, replace_index
-        )
+        self.controls_layout.locations_list.addEntry(new_location_entry)
 
     def toLocation(self, location: Location):
         self.current_location = location
@@ -263,7 +184,14 @@ class NewCampaignScreen(Screen):
                 size_hint=(0.2, 0.1),
             )
             self.location_back_button.bind(on_release=self.location_back_cb)
+
+        if self.location_back_button not in self.children:
             self.add_widget(self.location_back_button)
+
+        # Replace sub-locations with entries from new location
+        self.controls_layout.locations_list.clearList()
+        for index in location.locations.keys():
+            self.addLocationEntry(location.locations[index])
 
         self.changeMap(location.map)
 
@@ -274,12 +202,13 @@ class NewCampaignScreen(Screen):
     def delete_location_cb(self, instance: Button):
         parent: EditableListEntry = instance.parent
         location: Location = parent.thing
-        # TODO: Remove location from which ever location contains it
-        index = self.controls_layout.locations_list.list_layout.children.index(parent)
-        self.controls_layout.locations_list.list_layout.remove_widget(parent)
-        self.controls_layout.locations_list.list_layout.add_widget(
-            Label(text="Deleted..."), index
-        )
+
+        # Remove location from which ever location contains it
+        if location.parent:
+            location.parent.map.points_of_interest.remove(location.index)
+            del location.parent.locations[location.index]
+
+        self.controls_layout.locations_list.removeEntry(parent)
 
     def dummy(self, ignored):
         print("asdf")
@@ -441,7 +370,7 @@ class ControllerLayout(BoxLayout):
         # Create new location instance
         new_location = Location("todo", self.new_x, self.new_y)
         new_location.set_map(locationMapFile)
-        # TODO: set parent (if overworld?)
+        new_location.parent = self.screen.current_location
 
         # Add location to current location or campaign
         if self.screen.current_location is None:
@@ -450,6 +379,7 @@ class ControllerLayout(BoxLayout):
             self.screen.current_location.locations[(self.new_x, self.new_y)] = (
                 new_location
             )
+        self.screen.map.points_of_interest.append((self.new_x, self.new_y))
         self.current_location = new_location
 
         self.screen.toLocation(new_location)
@@ -557,14 +487,12 @@ class ControllerLayout(BoxLayout):
         if self.screen.map is None:
             return
         self.screen.map.window.zoom -= 1
-        self.screen.map.update()
         self.screen.map.draw()
 
     def zoomOut(self, value: float):
         if self.screen.map is None:
             return
         self.screen.map.window.zoom += 1
-        self.screen.map.update()
         self.screen.map.draw()
 
     def mapLeft(self, value: int) -> None:

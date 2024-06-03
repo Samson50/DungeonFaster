@@ -49,6 +49,7 @@ class Campaign:
 
         for location in load_data["locations"].keys():
             new_index = eval(load_data["locations"][location]["index"])
+            self.overworld.points_of_interest.append(new_index)
             new_name = load_data["locations"][location]["name"]
             new_location = Location(new_name, new_index[0], new_index[1])
             new_location.load(load_data["locations"][location], surface)

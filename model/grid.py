@@ -64,11 +64,27 @@ class Grid:
                         size=self.tile_size,
                     )
 
+    def getRect(self, x: int, y: int, source=None) -> Rectangle:
+        if source is None:
+            source = self.hidden_image_path
+
+        return Rectangle(
+            source=source,
+            pos=self.tile_pos_from_index(x, y),
+            size=self.tile_size,
+        )
+
+    def getHighlightRect(self, x: int, y: int) -> Rectangle:
+        return self.getRect(x, y, self.highlight_image_path)
+
+    def updateRect(self, rect: Rectangle, x: int, y: int):
+        rect.pos = self.tile_pos_from_index(x, y)
+        rect.size = self.tile_size
+
     def updateTile(self, x: int, y: int):
         tile = self.image_matrix[x][y]
         if tile:
-            tile.pos = self.tile_pos_from_index(x, y)
-            tile.size = self.tile_size
+            self.updateRect(tile, x, y)
 
     def tileAtIndex(self, source: str, i: int, j: int):
         Image(

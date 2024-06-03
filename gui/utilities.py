@@ -1,12 +1,109 @@
 import re
 import os
 
+from kivy.uix.accordion import AccordionItem
 from kivy.uix.button import Button
 from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.filechooser import FileChooserListView
 from kivy.uix.label import Label
 from kivy.uix.popup import Popup
+from kivy.uix.scrollview import ScrollView
 from kivy.uix.textinput import TextInput
+
+
+class EditableListEntry(BoxLayout):
+    def __init__(self, name: str, thing, edit_cb, delete_cb, **kwargs):
+        super().__init__(orientation="horizontal", **kwargs)
+
+        self.thing = thing
+
+        self.label = Label(text=name, size_hint=(0.5, 1))
+        self.add_widget(self.label)
+        self.edit_button = Button(text="edit", size_hint=(0.25, 1))
+        self.edit_button.bind(on_release=edit_cb)
+        self.add_widget(self.edit_button)
+        self.delete_button = Button(text="delete", size_hint=(0.25, 1))
+        self.delete_button.bind(on_release=delete_cb)
+        self.add_widget(self.delete_button)
+
+
+class CollapseItem(AccordionItem):
+    def __init__(self, add_title: str, add_cb, **kwargs):
+        super().__init__(**kwargs)
+        self.add_cb = add_cb
+
+        self.scroll_view = ScrollView(do_scroll_x=False, size_hint=(1, 1))
+
+        self.list_layout = BoxLayout(
+            orientation="vertical",
+            size_hint=(1, 2),
+        )
+        self.initial_children = 5
+
+        # Add item button
+        self.new_item_button = Button(text=add_title)
+        self.new_item_button.bind(on_release=self._add_cb)
+        self.list_layout.add_widget(self.new_item_button)
+
+        # Add placeholder items
+        for x in range(self.initial_children - 1):
+            self.list_layout.add_widget(Label(text=f"[...]"))
+
+        self.scroll_view.add_widget(self.list_layout)
+
+        self.add_widget(self.scroll_view)
+
+    def _add_cb(self, instance):
+        children = self.list_layout.children
+        n_children = len(children)
+
+        # Do we still have placeholders?
+        replace_index = None
+        if n_children == self.initial_children:
+            for child in children:
+                if child.__class__.__name__ == "Label":
+                    replace_index = children.index(child)
+
+        new_thing = self.add_cb(instance)
+
+        if replace_index:
+            self.list_layout.remove_widget(children[replace_index])
+            self.list_layout.add_widget(new_thing, replace_index)
+        else:
+            self.list_layout.add_widget(new_thing)
+
+        self.list_layout.size_hint = (1, 0.5 * n_children)
+
+    def addEntry(self, entry: EditableListEntry):
+        children = self.list_layout.children
+        n_children = len(children)
+
+        # Do we still have placeholders?
+        replace_index = None
+        for child in children:
+            if child.__class__.__name__ == "Label":
+                replace_index = children.index(child)
+
+        if not replace_index:
+            replace_index = n_children
+        else:
+            self.list_layout.remove_widget(children[replace_index])
+
+        self.list_layout.add_widget(entry, replace_index)
+
+    def removeEntry(self, entry: EditableListEntry):
+        self.list_layout.remove_widget(entry)
+
+        n_children = len(self.list_layout.children)
+        if n_children < self.initial_children:
+            self.list_layout.add_widget(Label(text="[...]"))
+
+        self.list_layout.size_hint = (1, 0.5 * n_children)
+
+    def clearList(self):
+        for child in self.list_layout.children:
+            if isinstance(child, EditableListEntry):
+                self.removeEntry(child)
 
 
 class LabeledIntInput(BoxLayout):

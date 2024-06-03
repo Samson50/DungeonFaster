@@ -1,5 +1,6 @@
 from kivy.uix.widget import Widget
 from kivy.uix.image import Image
+from kivy.graphics import Rectangle
 from kivy.graphics.texture import Texture
 
 
@@ -87,3 +88,18 @@ class Window:
             y = y + abs(self.y)
 
         return (x, y)
+
+    def showing(self, tile: Rectangle) -> bool:
+        """Determine if tile is within the current display window
+
+        Args:
+            tile (Rectangle): tile to check relative position of
+
+        Returns:
+            bool: Is the center of the tile within the display window?
+        """
+        center = (
+            tile.pos[0] + tile.size[0] / 2,
+            tile.pos[1] + tile.size[1] / 2,
+        )
+        return self.surface.collide_point(*center)
