@@ -23,7 +23,6 @@ class CampaignView(FloatLayout):
 
         self.map: Map = None
         self.campaign: Campaign = Campaign()
-        self.current_location: Location = None
         self.screen = screen
         self.map_layout = FloatLayout(
             pos_hint={"x": 0.025, "y": 0.025}, size_hint=(0.95, 0.95)
@@ -65,9 +64,10 @@ class CampaignView(FloatLayout):
     def load(self, load_path):
         self.remove_widget(self.getMapButton)
         self.campaign.load(load_path, self.map_layout)
-        self.map = self.campaign.overworld
+        self.map = self.campaign.current_location.map
         self.set_sliders()
 
+    # TODO: move back to newCampaignScreen
     def selectOverworldMapDialog(self, instance):
         self.overworldMapDialog = FileDialog(
             popup_title="Select Overworld Map",
@@ -78,15 +78,15 @@ class CampaignView(FloatLayout):
 
     def saveOverworldMap(self, instance):
         # Set overworld map file
-        self.overworldMapFile = self.overworldMapDialog.textInput.text
-
-        # Clear widgets from map_layout
-        self.clear_widgets()
-
+        overworldMapFile = self.overworldMapDialog.textInput.text
+        self.remove_widget(self.getMapButton)
         self.overworldMapDialog.closeDialog(None)
 
-        self.map = Map(self.overworldMapFile)
-        self.campaign.overworld = self.map
+        base_location = Location("overworld", 0, 0)
+        base_location.set_map(overworldMapFile)
+        self.map = base_location.map
+
+        self.add_location(base_location, 0, 0)
 
         self.map.getZoomForSurface(self.map_layout)
         self.map.draw()
@@ -129,32 +129,30 @@ class CampaignView(FloatLayout):
 
     def add_location(self, location: Location, x: int, y: int) -> None:
         # Add location to current location or campaign
-        if self.current_location is None:
+        if self.campaign.current_location is None:
             self.campaign.locations[(x, y)] = location
+            self.campaign.current_location = location
         else:
-            self.current_location.locations[(x, y)] = location
-        self.map.points_of_interest.append((x, y))
+            self.campaign.current_location.locations[(x, y)] = location
+            self.map.points_of_interest.append((x, y))
 
     def leave(self) -> Location:
-        location = self.current_location
+        location = self.campaign.current_location
 
         # Should not get here, but just in case
         # TODO: Leave campaign?
-        if not self.current_location:
-            print("No higher location?")
-            return None
-
-        self.current_location = location.parent
         if location.parent is None:
             # Back to overworld
-            self.changeMap(self.campaign.overworld)
+            return None
         else:
             self.changeMap(location.parent.map)
+
+        self.campaign.current_location = location.parent
 
         return location.parent
 
     def arrive(self, location: Location) -> None:
-        self.current_location = location
+        self.campaign.current_location = location
         self.changeMap(location.map)
 
     def on_click(self, layout: FloatLayout, event: MotionEvent):
@@ -172,17 +170,21 @@ class CampaignView(FloatLayout):
         ):
             return
 
-        (map_x, map_y) = self.map_layout.pos
-        (map_width, map_height) = self.map_layout.size
+        if self.map and self.map.hidden_tiles:
+            (map_x, map_y) = self.map_layout.pos
+            (map_width, map_height) = self.map_layout.size
 
-        # Ensure touch is on the map, ignore otherwise
-        if map_x < mouse_x < map_x + map_width and map_y < mouse_y < map_y + map_height:
-            try:
-                self.map.flip_at_coordinate(mouse_x - map_x, mouse_y - map_y)
-                self.map.draw()
-            # TODO: Deliberate error message and catching index error
-            except Exception as e:
-                print(e)
+            # Ensure touch is on the map, ignore otherwise
+            if (
+                map_x < mouse_x < map_x + map_width
+                and map_y < mouse_y < map_y + map_height
+            ):
+                try:
+                    self.map.flip_at_coordinate(mouse_x - map_x, mouse_y - map_y)
+                    self.map.draw()
+                # TODO: Deliberate error message and catching index error
+                except Exception as e:
+                    print(e)
 
     def zoomIn(self, value: float):
         if self.map is None:

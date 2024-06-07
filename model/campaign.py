@@ -11,16 +11,16 @@ class Campaign:
     def __init__(self):
         self.name: str | os.PathLike = ""
         self.save_path: str | os.PathLike = ""
-        self.overworld: Map = None
         self.position: tuple[int, int] = (0, 0)
         self.locations: dict[tuple[int, int], Location] = {}
+        self.current_location: Location = None
 
     def save(self, out_path: str | os.PathLike) -> None | Exception:
         data_dict = {}
         data_dict["name"] = self.name
         data_dict["position"] = self.position
-        if self.overworld:
-            data_dict["over_world"] = self.overworld.save()
+
+        data_dict["current_location"] = self.current_location.name
 
         locations_dict = {}
         for location in self.locations.keys():
@@ -44,16 +44,26 @@ class Campaign:
         self.name = load_data["name"]
         self.position = load_data["position"]
 
-        self.overworld = Map(load_data["over_world"]["map_file"])
-        self.overworld.load(load_data["over_world"], surface)
+        # Load base (overworld) location
+        base_data = load_data["locations"][str((0, 0))]
+        base_location = Location(base_data["name"], 0, 0)
+        base_location.load(base_data, surface)
+        self.locations[(0, 0)] = base_location
 
-        for location in load_data["locations"].keys():
-            new_index = eval(load_data["locations"][location]["index"])
-            self.overworld.points_of_interest.append(new_index)
-            new_name = load_data["locations"][location]["name"]
-            new_location = Location(new_name, new_index[0], new_index[1])
-            new_location.load(load_data["locations"][location], surface)
-            self.locations[new_index] = new_location
+        self.current_location = self.getLocation(load_data["current_location"])
+
+    def getLocation(self, name: str, locations=None) -> Location | None:
+        if locations is None:
+            locations = self.locations
+
+        for location in locations.values():
+            if location.name == name:
+                return location
+            else:
+                ret = self.getLocation(name, location.locations)
+                if ret:
+                    return ret
+        return None
 
     def goToLocation(self, x: int, y: int) -> None:
         pass

@@ -23,8 +23,15 @@ class EditableListEntry(BoxLayout):
         self.edit_button.bind(on_release=edit_cb)
         self.add_widget(self.edit_button)
         self.delete_button = Button(text="delete", size_hint=(0.25, 1))
-        self.delete_button.bind(on_release=delete_cb)
+        if delete_cb:
+            self.delete_button.bind(on_release=delete_cb)
+        else:
+            self.delete_button.bind(on_release=self.delete)
         self.add_widget(self.delete_button)
+
+    def delete(self, instance):
+        parent: BoxLayout = self.parent
+        parent.remove_widget(self)
 
 
 class CollapseItem(AccordionItem):

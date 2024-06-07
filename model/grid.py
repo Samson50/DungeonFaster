@@ -53,6 +53,12 @@ class Grid:
 
         self.scale_tiles()
 
+        # Ensure valid dimensions
+        if self.x != len(self.matrix) or self.y != len(self.matrix[0]):
+            self.matrix = [[0 for y in range(self.y)] for x in range(self.x)]
+        if self.x != len(self.image_matrix) or self.y != len(self.image_matrix[0]):
+            self.image_matrix = [[None for y in range(self.y)] for x in range(self.x)]
+
         for x in range(self.x):
             for y in range(self.y):
                 if self.matrix[x][y] == 0:

@@ -26,7 +26,6 @@ class NewCampaignScreen(Screen):
 
         self.menuManager = manager
         self.fileChooser = None
-        self.location_back_button: Button = None
 
         layout = BoxLayout(orientation="vertical")
 
@@ -76,6 +75,7 @@ class NewCampaignScreen(Screen):
 
         # Map layout
         self.campaign_view = CampaignView(self, size_hint=(0.7, 1))
+        self.campaign_view.bind(on_touch_down=self.campaign_view.on_click)
         editor_layout.add_widget(self.campaign_view)
 
         # Map controls layout
@@ -85,22 +85,21 @@ class NewCampaignScreen(Screen):
         self.add_widget(layout)
         self.menuManager.add_widget(self)
 
-    def location_back_cb(self, instance):
-        self.current_location = self.campaign_view.leave()
+        self.location_back_button = Button(
+            text="Back",
+            top=self.campaign_view.top,
+            x=self.campaign_view.x,
+            size_hint=(0.2, 0.1),
+        )
+        self.location_back_button.bind(on_release=self.location_back_cb)
 
-        if self.current_location is None:
-            # Remove back button
+    def location_back_cb(self, instance):
+        current_location = self.campaign_view.leave()
+
+        if current_location.parent is None:
             self.remove_widget(self.location_back_button)
 
-            # TODO: Set music and items list items
-            # Replace sub-locations with entries from new location
-            self.controls_layout.locations_list.clearList()
-            for index in self.campaign_view.campaign.locations.keys():
-                self.controls_layout.addLocationEntry(
-                    self.campaign_view.campaign.locations[index]
-                )
-        else:
-            self.toLocation(self.current_location)
+        self.toLocation(current_location)
 
     def onSaveCampaign(self, instance):
         saveFile = self.saveDialog.textInput.text
@@ -117,6 +116,10 @@ class NewCampaignScreen(Screen):
             print(e)
             return
 
+        # If location.parent, add back button
+        if self.campaign_view.campaign.current_location.parent is not None:
+            self.addBackButton()
+
         # Update controllers with values loaded from campaign
         self.controls_layout.update_from_map(self.campaign_view.map)
 
@@ -129,29 +132,27 @@ class NewCampaignScreen(Screen):
 
         # Add any loaded locations to self.controls_layout.locations_list
         # TODO: Change from overworld to root location then call toLocation on campaign root
-        for location_index in self.campaign_view.campaign.locations.keys():
+        for (
+            location_index
+        ) in self.campaign_view.campaign.current_location.locations.keys():
             self.controls_layout.addLocationEntry(
-                self.campaign_view.campaign.locations[location_index]
+                self.campaign_view.campaign.current_location.locations[location_index]
             )
 
-    def toLocation(self, location: Location):
-        self.current_location = location
+    def addBackButton(self):
+        # Add back button to go back to higher location
+        if self.location_back_button not in self.children:
+            self.add_widget(self.location_back_button)
 
+    def toLocation(self, location: Location):
         # TODO: Set music and item collapse view items
 
         # Add back button to go back to higher location
-        if location is not None:
-            if self.location_back_button is None:
-                self.location_back_button = Button(
-                    text="Back",
-                    top=self.campaign_view.top,
-                    x=self.campaign_view.x,
-                    size_hint=(0.2, 0.1),
-                )
-                self.location_back_button.bind(on_release=self.location_back_cb)
+        if location.parent is not None:
+            self.addBackButton()
 
-            if self.location_back_button not in self.children:
-                self.add_widget(self.location_back_button)
+        # Update switches
+        self.controls_layout.hidden_switch.active = self.campaign_view.map.hidden_tiles
 
         # Replace sub-locations with entries from new location
         self.controls_layout.set_locations(location.locations)
@@ -216,12 +217,14 @@ class ControllerLayout(BoxLayout):
         self.add_widget(hex_switch_layout)
 
         # Has hidden info: Switch
-        hidden_switch_layout = BoxLayout(orientation="horizontal", size_hint=(1, 0.08))
-        hidden_switch_layout.add_widget(Label(text="Has hidden areas"))
+        self.hidden_switch_layout = BoxLayout(
+            orientation="horizontal", size_hint=(1, 0.08)
+        )
+        self.hidden_switch_layout.add_widget(Label(text="Has hidden areas"))
         self.hidden_switch = Switch(active=False)
         self.hidden_switch.bind(active=self.hidden_cb)
-        hidden_switch_layout.add_widget(self.hidden_switch)
-        self.add_widget(hidden_switch_layout)
+        self.hidden_switch_layout.add_widget(self.hidden_switch)
+        self.add_widget(self.hidden_switch_layout)
 
         self.hide_buttons_layout = BoxLayout(
             orientation="horizontal", size_hint=(1, 0.08)
@@ -311,16 +314,14 @@ class ControllerLayout(BoxLayout):
             )
             self.fileSelectDialog.openDialog(None)
 
-    def onNewLocationMapSelection(self, instance):
+    def onNewLocationMapSelection(self, instance: Button):
         locationMapFile = self.fileSelectDialog.textInput.text
         self.fileSelectDialog.closeDialog(None)
-
-        print(f"Selected file {locationMapFile}")
 
         # Create new location instance
         new_location = Location("todo", self.new_x, self.new_y)
         new_location.set_map(locationMapFile)
-        new_location.parent = self.screen.current_location
+        new_location.parent = self.screen.campaign_view.campaign.current_location
 
         self.screen.campaign_view.add_location(new_location, self.new_x, self.new_y)
 
@@ -330,8 +331,30 @@ class ControllerLayout(BoxLayout):
         # Replace "Selecting location..." label with CollapseEntry instance for the new location
         self.addLocationEntry(new_location)
 
+    def onNewMusicSelection(self, instance: Button):
+        dialog: FileDialog = instance.parent.parent
+        musicFile = dialog.textInput.text
+        dialog.closeDialog(None)
+        new_music_entry = EditableListEntry(
+            f"{musicFile}",
+            None,
+            self.screen.edit_location_cb,
+            None,
+        )
+
+        self.music_list.addEntry(new_music_entry)
+
     def add_music_cb(self, instance):
-        pass
+        # File selection dialog
+        fileSelectDialog = FileDialog(
+            select_text="Select",
+            popup_title="Select New Location Map",
+            on_select=self.onNewMusicSelection,
+            path=os.path.expanduser("~"),
+        )
+        fileSelectDialog.openDialog(None)
+
+        return Label(text="Selecting music...")
 
     def on_size(self, instance, value):
         # Re-draw black background
@@ -389,18 +412,11 @@ class ControllerLayout(BoxLayout):
 
         if state:
             # Add show tile buttons
-            self.add_widget(self.hide_buttons_layout)
-            # Register on_click listener for self.screen.campaign_view
-            self.screen.campaign_view.bind(
-                on_touch_down=self.screen.campaign_view.on_click
-            )
+            index = self.children.index(self.hidden_switch_layout)
+            self.add_widget(self.hide_buttons_layout, index)
         else:
             # Remove / hide tile buttons
             self.remove_widget(self.hide_buttons_layout)
-            # Remove on_click listener
-            self.screen.campaign_view.unbind(
-                on_touch_down=self.screen.campaign_view.on_click
-            )
 
         self.screen.campaign_view.map.draw()
 
@@ -417,33 +433,34 @@ class ControllerLayout(BoxLayout):
         self.add_widget(rocker_box)
 
     def setXOffset(self, value: float):
-        if self.screen.map is None:
+        if self.screen.campaign_view.map is None:
+            print("What?")
             return
         self.screen.campaign_view.map.grid.x_offset = value
         self.screen.campaign_view.map.draw()
 
     def setYOffset(self, value: float):
-        if self.screen.map is None:
+        if self.screen.campaign_view.map is None:
             return
         self.screen.campaign_view.map.grid.y_offset = value
         self.screen.campaign_view.map.draw()
 
     def setXMargin(self, value: float):
-        if self.screen.map is None:
+        if self.screen.campaign_view.map is None:
             return
         self.screen.campaign_view.map.grid.x_margin = value
         self.screen.campaign_view.map.update()
         self.screen.campaign_view.map.draw()
 
     def setYMargin(self, value: float):
-        if self.screen.map is None:
+        if self.screen.campaign_view.map is None:
             return
         self.screen.campaign_view.map.grid.y_margin = value
         self.screen.campaign_view.map.update()
         self.screen.campaign_view.map.draw()
 
     def setDensity(self, value: float):
-        if self.screen.map is None:
+        if self.screen.campaign_view.map is None:
             return
         self.screen.campaign_view.map.grid.pixel_density = value
         self.screen.campaign_view.map.update()

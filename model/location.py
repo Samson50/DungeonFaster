@@ -11,6 +11,7 @@ class Location:
         self.parent: Location = None
         self.name: str = name
         self.map: Map = Map()
+        self.start_position: tuple[int, int] = (0, 0)
         self.index: tuple[int, int] = (x, y)
         self.locations: dict[tuple[int, int], Location] = {}
         self.music: list[Sound] = []
