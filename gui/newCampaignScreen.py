@@ -8,6 +8,7 @@ from kivy.uix.screenmanager import Screen
 from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.label import Label
 from kivy.uix.switch import Switch
+from kivy.uix.textinput import TextInput
 
 from gui.menuManager import MenuManager
 from gui.campaignView import CampaignView
@@ -87,9 +88,10 @@ class NewCampaignScreen(Screen):
 
         self.location_back_button = Button(
             text="Back",
+            pos_hint={"x": 0.025, "y": 0.7},
             top=self.campaign_view.top,
             x=self.campaign_view.x,
-            size_hint=(0.2, 0.1),
+            size_hint=(0.1, 0.075),
         )
         self.location_back_button.bind(on_release=self.location_back_cb)
 
@@ -122,6 +124,9 @@ class NewCampaignScreen(Screen):
 
         # Update controllers with values loaded from campaign
         self.controls_layout.update_from_map(self.campaign_view.map)
+        self.controls_layout.name_text.text = (
+            self.campaign_view.campaign.current_location.name
+        )
 
         # Make sure we show hidden tiles if necessary
         if self.campaign_view.map.hidden_tiles:
@@ -145,7 +150,9 @@ class NewCampaignScreen(Screen):
             self.add_widget(self.location_back_button)
 
     def toLocation(self, location: Location):
-        # TODO: Set music and item collapse view items
+        self.campaign_view.campaign.current_location = location
+
+        self.controls_layout.name_text.text = location.name
 
         # Add back button to go back to higher location
         if location.parent is not None:
@@ -156,6 +163,7 @@ class NewCampaignScreen(Screen):
 
         # Replace sub-locations with entries from new location
         self.controls_layout.set_locations(location.locations)
+        # TODO: Set music and item collapse view items
 
     def edit_location_cb(self, instance: Button):
         parent: EditableListEntry = instance.parent
@@ -185,6 +193,14 @@ class ControllerLayout(BoxLayout):
         self.canvas.add(self.bg_rect)
 
         self.screen = screen
+
+        self.name_layout = BoxLayout(orientation="horizontal", size_hint=(1, 0.08))
+        self.name_text = TextInput(size_hint=(0.7, 1))
+        self.name_text.bind(text=self.on_text)
+        self.name_label = Label(text="Name: ", size_hint=(0.3, 1))
+        self.name_layout.add_widget(self.name_label)
+        self.name_layout.add_widget(self.name_text)
+        self.add_widget(self.name_layout)
 
         self.density_controller = LabeledIntInput(
             "Box Size", self.setDensity, 0.5, 100, size_hint=(1, 0.08)
@@ -242,7 +258,7 @@ class ControllerLayout(BoxLayout):
         # TODO: Only activate once map is selected / loaded
 
         # Collapsible view for optional items: sub-locations, music, and combat music
-        self.accordion = Accordion(orientation="vertical", size_hint=(1, 1))
+        self.accordion = Accordion(orientation="vertical", size_hint=(1, 0.6))
 
         self.locations_list = CollapseItem(
             "Add Location", self.add_location_cb, title="Locations"
@@ -261,6 +277,9 @@ class ControllerLayout(BoxLayout):
         # self.items_list = ...
 
         self.add_widget(self.accordion)
+
+    def on_text(self, instance: TextInput, value: str) -> None:
+        self.screen.campaign_view.campaign.current_location.name = value
 
     def set_locations(self, locations: dict[tuple[int, int], Location]):
         self.locations_list.clearList()
