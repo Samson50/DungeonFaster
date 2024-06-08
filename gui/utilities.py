@@ -17,12 +17,20 @@ class EditableListEntry(BoxLayout):
 
         self.thing = thing
 
-        self.label = Label(text=name, size_hint=(0.5, 1))
+        width_hint = 0.25
+        label_width = 0.5
+        if not edit_cb:
+            label_width = width_hint + label_width
+
+        self.label = Label(text=name, size_hint=(label_width, 1))
         self.add_widget(self.label)
-        self.edit_button = Button(text="edit", size_hint=(0.25, 1))
-        self.edit_button.bind(on_release=edit_cb)
-        self.add_widget(self.edit_button)
-        self.delete_button = Button(text="delete", size_hint=(0.25, 1))
+
+        if edit_cb:
+            self.edit_button = Button(text="edit", size_hint=(width_hint, 1))
+            self.edit_button.bind(on_release=edit_cb)
+            self.add_widget(self.edit_button)
+
+        self.delete_button = Button(text="delete", size_hint=(width_hint, 1))
         if delete_cb:
             self.delete_button.bind(on_release=delete_cb)
         else:

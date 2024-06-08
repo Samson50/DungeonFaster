@@ -28,7 +28,7 @@ TODO
 
 ## Roadmap
 - [x] Main GUI
-- [ ] Campaign creation GUI
+- [x] Campaign creation GUI
 - [ ] Load campaign GUI
 - [ ] Run campaign GUI
 - [ ] `whl` Creation and deployment

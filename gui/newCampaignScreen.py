@@ -23,7 +23,6 @@ class NewCampaignScreen(Screen):
 
     def __init__(self, manager: MenuManager, **kwargs):
         super().__init__(name="NewCampaign")
-        # TODO: Add campaign_name text input box
 
         self.menuManager = manager
         self.fileChooser = None
@@ -136,12 +135,19 @@ class NewCampaignScreen(Screen):
             self.campaign_view.map.draw()
 
         # Add any loaded locations to self.controls_layout.locations_list
-        # TODO: Change from overworld to root location then call toLocation on campaign root
         for (
             location_index
         ) in self.campaign_view.campaign.current_location.locations.keys():
             self.controls_layout.addLocationEntry(
                 self.campaign_view.campaign.current_location.locations[location_index]
+            )
+
+        # Add musics for current location
+        for music in self.campaign_view.campaign.current_location.music:
+            self.controls_layout.addMusicEntry(music, self.controls_layout.music_list)
+        for combat_music in self.campaign_view.campaign.current_location.combat_music:
+            self.controls_layout.addMusicEntry(
+                combat_music, self.controls_layout.combat_music_list
             )
 
     def addBackButton(self):
@@ -269,7 +275,7 @@ class ControllerLayout(BoxLayout):
         self.accordion.add_widget(self.music_list)
 
         self.combat_music_list = CollapseItem(
-            "Add Combat Music", self.add_music_cb, title="Combat Music"
+            "Add Combat Music", self.add_combat_music_cb, title="Combat Music"
         )
         self.accordion.add_widget(self.combat_music_list)
 
@@ -295,6 +301,19 @@ class ControllerLayout(BoxLayout):
         )
 
         self.locations_list.addEntry(new_location_entry)
+
+    def addMusicEntry(self, musicFile: str, musicList: CollapseItem):
+        delete = self.delete_combat_music_cb
+        if musicList == self.music_list:
+            delete = self.delete_music_cb
+
+        new_music_entry = EditableListEntry(
+            musicFile,
+            self.screen.campaign_view.campaign.current_location,
+            None,
+            delete,
+        )
+        musicList.addEntry(new_music_entry)
 
     def add_location_cb(self, instance):
         # Set campaign_view click to selecting tile for location
@@ -350,30 +369,65 @@ class ControllerLayout(BoxLayout):
         # Replace "Selecting location..." label with CollapseEntry instance for the new location
         self.addLocationEntry(new_location)
 
+    def onNewCombatMusicSelection(self, instance: Button):
+        dialog: FileDialog = instance.parent.parent
+        musicFile = dialog.textInput.text
+        dialog.closeDialog(None)
+
+        self.addMusicEntry(musicFile, self.combat_music_list)
+
+        self.screen.campaign_view.add_combat_music(musicFile)
+
     def onNewMusicSelection(self, instance: Button):
         dialog: FileDialog = instance.parent.parent
         musicFile = dialog.textInput.text
         dialog.closeDialog(None)
-        new_music_entry = EditableListEntry(
-            f"{musicFile}",
-            None,
-            self.screen.edit_location_cb,
-            None,
-        )
 
-        self.music_list.addEntry(new_music_entry)
+        self.addMusicEntry(musicFile, self.music_list)
+
+        self.screen.campaign_view.add_music(musicFile)
 
     def add_music_cb(self, instance):
         # File selection dialog
         fileSelectDialog = FileDialog(
             select_text="Select",
-            popup_title="Select New Location Map",
+            popup_title="Select Music File",
             on_select=self.onNewMusicSelection,
             path=os.path.expanduser("~"),
         )
         fileSelectDialog.openDialog(None)
 
         return Label(text="Selecting music...")
+
+    def add_combat_music_cb(self, instance):
+        # File selection dialog
+        fileSelectDialog = FileDialog(
+            select_text="Select",
+            popup_title="Select New Combat Music",
+            on_select=self.onNewCombatMusicSelection,
+            path=os.path.expanduser("~"),
+        )
+        fileSelectDialog.openDialog(None)
+
+        return Label(text="Selecting music...")
+
+    def delete_music_cb(self, instance: Button) -> None:
+        parent: EditableListEntry = instance.parent
+        location: Location = parent.thing
+
+        # Remove music from location
+        location.music.remove(parent.label.text)
+
+        self.music_list.removeEntry(parent)
+
+    def delete_combat_music_cb(self, instance: Button) -> None:
+        parent: EditableListEntry = instance.parent
+        location: Location = parent.thing
+
+        # Remove music from location
+        location.combat_music.remove(parent.label.text)
+
+        self.combat_music_list.removeEntry(parent)
 
     def on_size(self, instance, value):
         # Re-draw black background

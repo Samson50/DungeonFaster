@@ -14,8 +14,8 @@ class Location:
         self.start_position: tuple[int, int] = (0, 0)
         self.index: tuple[int, int] = (x, y)
         self.locations: dict[tuple[int, int], Location] = {}
-        self.music: list[Sound] = []
-        self.combat_music: list[Sound] = []
+        self.music: list[str] = []
+        self.combat_music: list[str] = []
         # TODO: self.items
         pass
 
@@ -28,6 +28,8 @@ class Location:
         save_dict["name"] = self.name
         save_dict["map"] = self.map.save()
         save_dict["index"] = str(self.index)
+        save_dict["music"] = self.music
+        save_dict["combat_music"] = self.combat_music
 
         locations_dict = {}
         for location in self.locations.keys():
@@ -42,12 +44,14 @@ class Location:
         self.index = eval(load_json["index"])
 
         if "music" in load_json.keys():
-            for song_file in load_json["music"]:
-                self.music.append(SoundLoader.load(song_file))
+            self.music = load_json["music"]
+            # for song_file in load_json["music"]:
+            #     self.music.append(SoundLoader.load(song_file))
 
         if "combat_music" in load_json.keys():
-            for song_file in load_json["combat_music"]:
-                self.music.append(SoundLoader.load(song_file))
+            self.combat_music = load_json["combat_music"]
+            # for song_file in load_json["combat_music"]:
+            #     self.music.append(SoundLoader.load(song_file))
 
         for location in load_json["locations"].keys():
             new_index = eval(load_json["locations"][location]["index"])

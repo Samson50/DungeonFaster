@@ -53,6 +53,13 @@ class CampaignView(FloatLayout):
             pos_hint={"x": 0.0, "y": 0.05},
         )
 
+    def add_controls(self) -> None:
+        """TODO: add buttons for DM control:
+        - Go to location
+        - Change/Stop music
+        """
+        pass
+
     # TODO: How to catch going full-screen?
     def on_size(self, instance, value):
         if self.map:
@@ -135,6 +142,12 @@ class CampaignView(FloatLayout):
         else:
             self.campaign.current_location.locations[(x, y)] = location
             self.map.points_of_interest.append((x, y))
+
+    def add_music(self, music_file: str) -> None:
+        self.campaign.current_location.music.append(music_file)
+
+    def add_combat_music(self, music_file: str) -> None:
+        self.campaign.current_location.combat_music.append(music_file)
 
     def leave(self) -> Location:
         location = self.campaign.current_location
