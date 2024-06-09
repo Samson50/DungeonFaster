@@ -11,6 +11,7 @@ class DungeonFasterApp(App):
 
         menuManager = MenuManager()
         menuManager.newCampaignScreen = NewCampaignScreen(menuManager)
+        # menuManager.loadCampaignScreen = LoadCampaignScreen(menuManager)
         menuManager.addBackButton(menuManager.newCampaignScreen)
 
         return menuManager

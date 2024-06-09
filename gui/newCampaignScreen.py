@@ -193,6 +193,8 @@ class ControllerLayout(BoxLayout):
     def __init__(self, screen: NewCampaignScreen, **kwargs):
         super().__init__(orientation="vertical", size_hint=(0.3, 1), **kwargs)
 
+        # TODO: Overarching input for campaign name
+
         self.bg_color = Color(0.0, 0.0, 0.0)
         self.bg_rect = Rectangle(size=self.size, pos=self.pos)
         self.canvas.add(self.bg_color)
