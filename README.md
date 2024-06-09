@@ -31,6 +31,14 @@ TODO
 - [x] Campaign creation GUI
 - [x] Load campaign GUI
 - [ ] Run campaign GUI
+  - [x] Show current party icon
+  - [x] Tile selection and state responses
+    - [x] On select (if revealed) -> show adjacent tiles
+    - [x] Click after select -> go to location
+    - [x] Click adjacent after select -> move party
+  - [ ] Leave location
+  - [ ] Play location music
+  - [ ] DM controls
 - [ ] `whl` Creation and deployment
 - [ ] v0.1.0 Re-work campaign GUI
 - [ ] Create example campaign

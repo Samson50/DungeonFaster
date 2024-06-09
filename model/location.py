@@ -30,6 +30,7 @@ class Location:
         save_dict["index"] = str(self.index)
         save_dict["music"] = self.music
         save_dict["combat_music"] = self.combat_music
+        save_dict["start_position"] = self.start_position
 
         locations_dict = {}
         for location in self.locations.keys():
@@ -42,6 +43,11 @@ class Location:
         self.name = load_json["name"]
         self.map.load(load_json["map"], surface)
         self.index = eval(load_json["index"])
+
+        if "start_position" in load_json.keys():
+            self.start_position = tuple(load_json["start_position"])
+        else:
+            self.start_position = (0, 0)
 
         if "music" in load_json.keys():
             self.music = load_json["music"]

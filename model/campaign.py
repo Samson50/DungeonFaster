@@ -42,7 +42,7 @@ class Campaign:
             load_data = json.loads(string_data)
 
         self.name = load_data["name"]
-        self.position = load_data["position"]
+        self.position = tuple(load_data["position"])
 
         # Load base (overworld) location
         base_data = load_data["locations"][str((0, 0))]

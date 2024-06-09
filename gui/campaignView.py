@@ -1,7 +1,10 @@
+from kivy.core.audio import SoundLoader, Sound
+from kivy.graphics import Rectangle
 from kivy.input.motionevent import MotionEvent
 from kivy.uix.button import Button
-from kivy.uix.screenmanager import Screen
 from kivy.uix.floatlayout import FloatLayout
+from kivy.uix.image import Image
+from kivy.uix.screenmanager import Screen
 from kivy.uix.slider import Slider
 
 from gui.utilities import FileDialog
@@ -9,7 +12,6 @@ from gui.utilities import FileDialog
 from model.location import Location
 from model.map import Map
 from model.campaign import Campaign
-from functools import partial
 
 
 DELTA_X_SHIFT = 15
@@ -21,9 +23,23 @@ class CampaignView(FloatLayout):
     def __init__(self, screen: Screen, **kwargs):
         super().__init__(**kwargs)
 
+        self.screen = screen
+        self.party_icon = Rectangle(
+            source="resources/icons/party.png",
+        )
+        self.party_bg = None
+        self.selected: tuple[int, int] = None
+        self.select_rect: Rectangle = Rectangle(source="resources/icons/selected.png")
+        self.adjacent: list[Rectangle] = None
+        self.position_stack: list[tuple[int, int]] = []
         self.map: Map = None
         self.campaign: Campaign = Campaign()
-        self.screen = screen
+        self.music: list[Sound] = []
+        self.combat_music: list[Sound] = []
+
+        # Is the campaign running or being edited?
+        self.running = False
+
         self.map_layout = FloatLayout(
             pos_hint={"x": 0.025, "y": 0.025}, size_hint=(0.95, 0.95)
         )
@@ -33,7 +49,7 @@ class CampaignView(FloatLayout):
         self.getMapButton.bind(on_release=self.selectOverworldMapDialog)
         self.add_widget(self.getMapButton)
 
-        self.x_slider = Slider(
+        self.x_slider: Slider = Slider(
             min=0,
             max=1,
             value=0.0,
@@ -43,7 +59,7 @@ class CampaignView(FloatLayout):
             pos_hint={"x": 0.05, "y": 0.0},
         )
 
-        self.y_slider = Slider(
+        self.y_slider: Slider = Slider(
             min=0,
             max=1,
             value=0.0,
@@ -63,7 +79,7 @@ class CampaignView(FloatLayout):
     # TODO: How to catch going full-screen?
     def on_size(self, instance, value):
         if self.map:
-            self.map.draw()
+            self.draw()
 
     def save(self, file):
         self.campaign.save(file)
@@ -74,6 +90,12 @@ class CampaignView(FloatLayout):
         self.map = self.campaign.current_location.map
         self.set_sliders()
 
+        # Load musics as list of Sound
+        for song in self.campaign.current_location.music:
+            self.music.append(SoundLoader.load(song))
+        for song in self.campaign.current_location.combat_music:
+            self.combat_music.append(SoundLoader.load(song))
+
     # TODO: move back to newCampaignScreen
     def selectOverworldMapDialog(self, instance):
         self.overworldMapDialog = FileDialog(
@@ -82,6 +104,58 @@ class CampaignView(FloatLayout):
         )
 
         self.overworldMapDialog.openDialog(None)
+
+    def draw(self) -> None:
+        self.map.draw()
+        self.draw_party()
+        self.draw_selected()
+
+    def draw_party(self) -> None:
+        if not self.party_bg:
+            self.party_bg = self.map.grid.getRect(
+                *self.campaign.position, self.map.grid.hidden_image_path
+            )
+        self.party_icon.pos = self.map.grid.tile_pos_from_index(*self.campaign.position)
+        self.party_icon.size = self.map.grid.tile_size
+        self.party_bg.pos = self.party_icon.pos
+        self.party_bg.size = self.party_icon.size
+
+        if self.party_bg not in self.map_layout.canvas.children:
+            self.map_layout.canvas.add(self.party_bg)
+        if self.party_icon not in self.map_layout.canvas.children:
+            self.map_layout.canvas.add(self.party_icon)
+
+    def clear_adjacent(self) -> None:
+        for tile in self.adjacent:
+            if tile in self.map_layout.canvas.children:
+                self.map_layout.canvas.remove(tile)
+        self.adjacent = None
+
+    def draw_selected(self) -> None:
+        if self.selected:
+            self.select_rect.pos = self.map.grid.tile_pos_from_index(*self.selected)
+            self.select_rect.size = self.map.grid.tile_size
+            if self.select_rect not in self.map_layout.canvas.children:
+                self.map_layout.canvas.add(self.select_rect)
+
+            if self.selected == self.campaign.position:
+                # Draw adjacent tiles
+                if not self.adjacent:
+                    self.adjacent = [
+                        self.map.grid.getHighlightRect(*pos)
+                        for pos in self.map.grid.adjacent(*self.selected)
+                    ]
+
+                for tile in self.adjacent:
+                    # tile.pos = self.map.grid.pixel_to_index
+                    if tile not in self.map_layout.canvas.children:
+                        self.map_layout.canvas.add(tile)
+        else:
+            if self.select_rect in self.map_layout.canvas.children:
+                self.map_layout.canvas.remove(self.select_rect)
+
+            if self.adjacent:
+                self.clear_adjacent()
 
     def saveOverworldMap(self, instance):
         # Set overworld map file
@@ -96,7 +170,7 @@ class CampaignView(FloatLayout):
         self.add_location(base_location, 0, 0)
 
         self.map.getZoomForSurface(self.map_layout)
-        self.map.draw()
+        self.draw()
 
         self.set_sliders()
 
@@ -109,12 +183,12 @@ class CampaignView(FloatLayout):
     def x_scroll(self, instance: Slider, value):
         width = self.map.width / self.map.window.zoom - self.map.window.surface.width
         self.map.window.x = width * value
-        self.map.draw()
+        self.draw()
 
     def y_scroll(self, instance: Slider, value: float) -> None:
         height = self.map.height / self.map.window.zoom - self.map.window.surface.height
         self.map.window.y = height * value
-        self.map.draw()
+        self.draw()
 
     def _by_scroll(self):
         width = self.map.width / self.map.window.zoom - self.map.window.surface.width
@@ -123,16 +197,16 @@ class CampaignView(FloatLayout):
         height = self.map.height / self.map.window.zoom - self.map.window.surface.height
         self.map.window.y = height * self.y_slider.value
 
-        self.map.draw()
+        self.draw()
 
     def changeMap(self, map: Map):
         self.map = map
 
         self.map_layout.canvas.clear()
-        self.map.drawn_tiles = []
+        self.drawn_tiles = []
         self.map.map_rect = None
         self.map.getZoomForSurface(self.map_layout)
-        self.map.draw()
+        self.draw()
 
     def add_location(self, location: Location, x: int, y: int) -> None:
         # Add location to current location or campaign
@@ -161,11 +235,17 @@ class CampaignView(FloatLayout):
             self.changeMap(location.parent.map)
 
         self.campaign.current_location = location.parent
+        try:
+            self.campaign.position = self.position_stack.pop()
+        except:
+            self.campaign.position = location.parent.start_position
 
         return location.parent
 
     def arrive(self, location: Location) -> None:
         self.campaign.current_location = location
+        self.position_stack.append(self.campaign.position)
+        self.campaign.position = location.start_position
         self.changeMap(location.map)
 
     def on_click(self, layout: FloatLayout, event: MotionEvent):
@@ -183,7 +263,7 @@ class CampaignView(FloatLayout):
         ):
             return
 
-        if self.map and self.map.hidden_tiles:
+        if self.map:
             (map_x, map_y) = self.map_layout.pos
             (map_width, map_height) = self.map_layout.size
 
@@ -193,11 +273,46 @@ class CampaignView(FloatLayout):
                 and map_y < mouse_y < map_y + map_height
             ):
                 try:
-                    self.map.flip_at_coordinate(mouse_x - map_x, mouse_y - map_y)
-                    self.map.draw()
+                    x, y = self.map.grid.pixel_to_index(
+                        mouse_x - map_x, mouse_y - map_y
+                    )
+                    print(f"{(x, y)}")
+                    if self.running:
+                        self.interact(x, y)
+                    else:
+                        self.map.grid.flip_tile(x, y)
+                    self.draw()
                 # TODO: Deliberate error message and catching index error
                 except Exception as e:
-                    print(e)
+                    print(f"Error in interaction: {e}")
+
+    def interact(self, x: int, y: int) -> None:
+        # TODO: Right click to re-hide tile?
+        if self.selected:
+            if (x, y) == self.selected:
+                # Attempt to go to selected location
+                if (x, y) == self.campaign.position:
+                    # TODO: if self.selected in locations...
+                    if (x, y) in self.campaign.current_location.locations.keys():
+                        self.arrive(self.campaign.current_location.locations[(x, y)])
+                        self.clear_adjacent()
+                self.selected = None
+
+            # Move party to new location
+            if self.selected == self.campaign.position:
+                if (x, y) in self.map.grid.adjacent(*self.campaign.position):
+                    self.campaign.position = (x, y)
+                    self.clear_adjacent()
+                    self.selected = None
+
+                    # Reveal adjacent tiles
+                    for adjacent in self.map.grid.adjacent(x, y):
+                        self.map.reveal(*adjacent)
+
+        elif self.map.revealed(x, y):
+            self.selected = (x, y)
+        elif self.map.hidden_tiles:
+            self.map.flip_at_index(x, y)
 
     def zoomIn(self, value: float):
         if self.map is None:

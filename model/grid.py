@@ -143,6 +143,19 @@ class Grid:
 
     # ==== Override methods ==== #
 
+    def adjacent(self, x: int, y: int) -> list[tuple[int, int]]:
+        """For the given x, y index, return a list of indices that are directly adjacent to the given
+        index within the matrix
+
+        Args:
+            x (int): Coordinate on the x axis
+            y (int): Coordinate on the y axis
+
+        Returns:
+            list[tuple[int, int]]: List of indices within the matrix adjacent to the given
+        """
+        pass
+
     def scale_tiles(self):
         pass
 
@@ -198,6 +211,22 @@ class SquareGrid(Grid):
         self.highlight_image_path = "resources/map/highlight_grid.png"
         self.hidden_image_path = "resources/map/grid.png"
 
+    def adjacent(self, x: int, y: int) -> list[tuple[int, int]]:
+        tiles = [
+            (x, y - 1),
+            (x, y + 1),
+            (x - 1, y - 1),
+            (x - 1, y + 1),
+            (x - 1, y),
+            (x + 1, y - 1),
+            (x + 1, y + 1),
+            (x + 1, y),
+        ]
+
+        # TODO: Filter out of range
+
+        return tiles
+
     def update(self, width, height):
         self.x = int(width / self.pixel_density - 2 * self.x_margin)
         self.y = int(height / self.pixel_density - 2 * self.y_margin)
@@ -250,8 +279,26 @@ class HexGrid(Grid):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        self.highlight_image_path = "resources/map/highlight.png"
+        self.highlight_image_path = "resources/icons/highlight.png"
         self.hidden_image_path = "resources/map/hexes.png"
+
+    def adjacent(self, x: int, y: int) -> list[tuple[int, int]]:
+        tiles = [(x, y + 2), (x, y - 2)]
+        if x % 2 == 0:
+            tiles.append((x, y + 1))
+            tiles.append((x, y - 1))
+        else:
+            tiles.append((x, y + 1))
+            tiles.append((x, y - 1))
+
+        if y % 2 == 0:
+            tiles.append((x - 1, y + 1))
+            tiles.append((x - 1, y - 1))
+        else:
+            tiles.append((x + 1, y - 1))
+            tiles.append((x + 1, y + 1))
+
+        return tiles
 
     def scale_tiles(self):
         self.tile_size = (

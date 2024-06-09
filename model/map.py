@@ -86,7 +86,8 @@ class Map:
     def update(self):
         self.grid.update(self.width, self.height)
         for tile in self.drawn_tiles:
-            self.window.surface.canvas.remove(tile)
+            if tile in self.window.surface.canvas.children:
+                self.window.surface.canvas.remove(tile)
         self.drawn_tiles = []
         self.drawn_poi = {}
 
@@ -160,7 +161,7 @@ class Map:
                     poi_rect = self.drawn_poi[poi]
                     self.grid.updateRect(poi_rect, poi[0], poi[1])
                 else:
-                    poi_rect = self.grid.getHighlightRect(*poi)
+                    poi_rect = self.grid.getRect(*poi, "resources/icons/poi.png")
 
                 # If the PoI is within the display window
                 if self.window.showing(poi_rect):
@@ -191,7 +192,9 @@ class Map:
 
     def flip_at_coordinate(self, px: float, py: float) -> None:
         (x, y) = self.grid.pixel_to_index(px, py)
+        self.flip_at_index(x, y)
 
+    def flip_at_index(self, x: int, y: int) -> None:
         tile = self.grid.flip_tile(x, y)
 
         if tile in self.drawn_tiles:
@@ -200,6 +203,26 @@ class Map:
         else:
             self.drawn_tiles.append(tile)
             self.window.surface.canvas.add(tile)
+
+    def revealed(self, x: int, y: int) -> bool:
+        try:
+            return self.grid.matrix[x][y] == 0
+        except:
+            return False
+
+    def hidden(self, x: int, y: int) -> bool:
+        try:
+            return self.grid.matrix[x][y] == 1
+        except:
+            return False
+
+    def reveal(self, x: int, y: int) -> None:
+        if self.hidden(x, y):
+            tile = self.grid.flip_tile(x, y)
+            if tile in self.drawn_tiles:
+                self.drawn_tiles.remove(tile)
+            if tile in self.window.surface.canvas.children:
+                self.window.surface.canvas.remove(tile)
 
     def draw(self):
         self.drawMap()
