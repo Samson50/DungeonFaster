@@ -1,7 +1,10 @@
+import time, os
+
 from kivy.core.audio import SoundLoader, Sound
 from kivy.graphics import Rectangle
 from kivy.input.motionevent import MotionEvent
 from kivy.uix.button import Button
+from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.floatlayout import FloatLayout
 from kivy.uix.image import Image
 from kivy.uix.screenmanager import Screen
@@ -16,6 +19,106 @@ from model.campaign import Campaign
 
 DELTA_X_SHIFT = 15
 DELTA_Y_SHIFT = 15
+
+
+class AudioController(BoxLayout):
+    def __init__(self, campaign_view, **kwargs):
+        super().__init__(orientation="horizontal", **kwargs)
+
+        self.campaign_view: CampaignView = campaign_view
+
+        self.skip_back_button = Button(text="<<")
+        # self.skip_back_button.bind(on_release=self.play_previous)
+        self.pause_button = Button(text="||")
+        self.pause_button.bind(on_release=self.pause)
+        self.play_button = Button(text="|>")
+        self.play_button.bind(on_release=self.play)
+        self.skip_forward_button = Button(text=">>")
+        self.skip_forward_button.bind(on_release=self.play_next)
+        self.combat_button = Button(text="><")
+        self.combat_button.bind(on_release=self.switch_combat)
+        self.volume_up_button = Button(text="+")
+        self.volume_up_button.bind(on_release=self.volume_up)
+        self.volume_down_button = Button(text="-")
+        self.volume_down_button.bind(on_release=self.volume_down)
+
+        self.add_widget(self.skip_back_button)
+        self.add_widget(self.pause_button)
+        self.add_widget(self.skip_forward_button)
+        self.add_widget(self.combat_button)
+        self.add_widget(self.volume_up_button)
+        self.add_widget(self.volume_down_button)
+
+    def pause(self, instance: Button) -> None:
+        self.campaign_view.player.pause()
+        index: int = self.children.index(instance)
+        self.remove_widget(instance)
+        self.add_widget(self.play_button, index)
+
+    def play(self, instance: Button) -> None:
+        self.campaign_view.player.play()
+        index: int = self.children.index(instance)
+        self.remove_widget(instance)
+        self.add_widget(self.pause_button, index)
+
+    def play_next(self, instance: Button) -> None:
+        self.campaign_view.player.play_next()
+
+    def switch_combat(self, instance: Button) -> None:
+        print("TODO")
+        pass
+
+    def volume_up(self, instance: Button) -> None:
+        self.campaign_view.player.volume_up()
+
+    def volume_down(self, instance: Button) -> None:
+        self.campaign_view.player.volume_down()
+
+
+class AudioPlayer:
+    def __init__(self, playlist: list[Sound]):
+        self.playlist = playlist
+        self.resume_position = 0
+        self.index = 0
+        self.volume = 0.5
+        self.started = 0
+
+    def play(self):
+        self.playlist[self.index].play()
+        # TODO: Resume isn't working and I don't know why
+        if self.resume_position != 0:
+            self.playlist[self.index].seek(self.resume_position)
+            self.resume_position = 0
+        self.playlist[self.index].volume = self.volume
+        self.playlist[self.index].bind(on_stop=self._play_next)
+
+    def _play_next(self, instance: Sound):
+        self._stop(instance)
+        self.index = (self.index + 1) % len(self.playlist)
+        self.resume_position = 0
+        self.play()
+
+    def play_next(self):
+        sound: Sound = self.playlist[self.index]
+        self._play_next(sound)
+
+    def _stop(self, sound: Sound) -> None:
+        sound.unbind(on_stop=self._play_next)
+        sound.stop()
+
+    def pause(self):
+        self.resume_position = self.playlist[self.index].get_pos()
+        self._stop(self.playlist[self.index])
+
+    def volume_up(self):
+        self.volume = self.volume + 0.05
+        self.volume = min(self.volume, 1)
+        self.playlist[self.index].volume = self.volume
+
+    def volume_down(self):
+        self.volume = self.volume - 0.05
+        self.volume = max(self.volume, 0)
+        self.playlist[self.index].volume = self.volume
 
 
 class CampaignView(FloatLayout):
@@ -34,6 +137,8 @@ class CampaignView(FloatLayout):
         self.position_stack: list[tuple[int, int]] = []
         self.map: Map = None
         self.campaign: Campaign = Campaign()
+
+        self.player: AudioPlayer = None
         self.music: list[Sound] = []
         self.combat_music: list[Sound] = []
 
@@ -45,10 +150,16 @@ class CampaignView(FloatLayout):
         )
         self.add_widget(self.map_layout)
 
-        self.getMapButton = Button(text="Select Overworld Map")
-        self.getMapButton.bind(on_release=self.selectOverworldMapDialog)
-        self.add_widget(self.getMapButton)
+        # TODO: Only call when creating map
+        self.add_map_button()
 
+        # Button to leave current location - go to parent
+        self.leave_button = Button(
+            text="leave", pos_hint={"x": 0.05, "y": 0.90}, size_hint=(0.1, 0.05)
+        )
+        self.leave_button.bind(on_release=self.on_leave_cb)
+
+        # Sliders to control map view window position
         self.x_slider: Slider = Slider(
             min=0,
             max=1,
@@ -58,7 +169,6 @@ class CampaignView(FloatLayout):
             size_hint=(0.9, 0.05),
             pos_hint={"x": 0.05, "y": 0.0},
         )
-
         self.y_slider: Slider = Slider(
             min=0,
             max=1,
@@ -69,12 +179,33 @@ class CampaignView(FloatLayout):
             pos_hint={"x": 0.0, "y": 0.05},
         )
 
+    def add_map_button(self) -> None:
+        self.getMapButton = Button(text="Select Overworld Map")
+        self.getMapButton.bind(on_release=self.selectOverworldMapDialog)
+        self.add_widget(self.getMapButton)
+
     def add_controls(self) -> None:
-        """TODO: add buttons for DM control:
+        """Add buttons for DM control:
         - Go to location
         - Change/Stop music
+        - Save campaign state
         """
-        pass
+        self.audio_controller = AudioController(
+            self, size_hint=(0.3, 0.05), pos_hint={"x": 0.65, "y": 0.05}
+        )
+        self.add_widget(self.audio_controller)
+
+        self.move_party_button = Button(
+            text="Move Party",
+            size_hint=(0.15, 0.05),
+            pos_hint={"center_x": 0.8, "y": 0.1},
+        )
+        self.add_widget(self.move_party_button)
+
+        self.save_button = Button(
+            text="save", size_hint=(0.1, 0.05), pos_hint={"x": 0.85, "y": 0.9}
+        )
+        self.add_widget(self.save_button)
 
     # TODO: How to catch going full-screen?
     def on_size(self, instance, value):
@@ -91,10 +222,22 @@ class CampaignView(FloatLayout):
         self.set_sliders()
 
         # Load musics as list of Sound
-        for song in self.campaign.current_location.music:
-            self.music.append(SoundLoader.load(song))
-        for song in self.campaign.current_location.combat_music:
-            self.combat_music.append(SoundLoader.load(song))
+        # TODO: Get first parent with music
+        self.update_playlist(self.campaign.current_location)
+
+    def update_playlist(self, location: Location) -> None:
+        for song in location.music:
+            sound = SoundLoader.load(song)
+            if sound:
+                self.music.append(sound)
+        for song in location.combat_music:
+            sound = SoundLoader.load(song)
+            if sound:
+                self.combat_music.append(sound)
+
+        if len(self.music) > 0:
+            self.player = AudioPlayer(self.music)
+            self.player.play()
 
     # TODO: move back to newCampaignScreen
     def selectOverworldMapDialog(self, instance):
@@ -203,7 +346,7 @@ class CampaignView(FloatLayout):
         self.map = map
 
         self.map_layout.canvas.clear()
-        self.drawn_tiles = []
+        self.map.drawn_tiles = []
         self.map.map_rect = None
         self.map.getZoomForSurface(self.map_layout)
         self.draw()
@@ -223,8 +366,15 @@ class CampaignView(FloatLayout):
     def add_combat_music(self, music_file: str) -> None:
         self.campaign.current_location.combat_music.append(music_file)
 
+    def on_leave_cb(self, instance: Button) -> None:
+        new_location: Location = self.leave()
+
+        if new_location.parent is None and self.leave_button in self.children:
+            self.remove_widget(self.leave_button)
+
     def leave(self) -> Location:
         location = self.campaign.current_location
+        self.selected = None
 
         # Should not get here, but just in case
         # TODO: Leave campaign?
@@ -233,6 +383,10 @@ class CampaignView(FloatLayout):
             return None
         else:
             self.changeMap(location.parent.map)
+
+        # Update music if applicable
+        if len(location.parent.music) > 0:
+            self.update_playlist(location.parent)
 
         self.campaign.current_location = location.parent
         try:
@@ -243,10 +397,19 @@ class CampaignView(FloatLayout):
         return location.parent
 
     def arrive(self, location: Location) -> None:
+        self.selected = None
         self.campaign.current_location = location
         self.position_stack.append(self.campaign.position)
         self.campaign.position = location.start_position
         self.changeMap(location.map)
+
+        # Update music if applicable
+        if len(location.music) > 0:
+            self.update_playlist(location)
+
+        # Add button to leave location
+        if self.leave_button not in self.children:
+            self.add_widget(self.leave_button)
 
     def on_click(self, layout: FloatLayout, event: MotionEvent):
         if event.is_mouse_scrolling:

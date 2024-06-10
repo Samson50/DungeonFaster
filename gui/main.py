@@ -1,5 +1,9 @@
 #!/usr/bin/python3
 
+# import os
+
+# os.environ["KIVY_AUDIO"] = "ffpyplayer"
+
 from kivy.app import App
 
 from gui.loadCampaignScreen import LoadCampaignScreen

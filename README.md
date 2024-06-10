@@ -4,8 +4,9 @@ A simple way to spice up your DnD (or other TTRPG) campaign and be the coolest D
 This is a work in progress. 
 
 ## Requirements
-- Python (TODO: Specific version?)
+- Python3 (TODO: Specific version?)
 - Kivy
+- ffpyplayer
 - Media files for your campaign (maps, images, and/or audio files)
 
 ## Installation
@@ -30,15 +31,15 @@ TODO
 - [x] Main GUI
 - [x] Campaign creation GUI
 - [x] Load campaign GUI
-- [ ] Run campaign GUI
+- [x] Run campaign GUI
   - [x] Show current party icon
   - [x] Tile selection and state responses
     - [x] On select (if revealed) -> show adjacent tiles
     - [x] Click after select -> go to location
     - [x] Click adjacent after select -> move party
-  - [ ] Leave location
-  - [ ] Play location music
-  - [ ] DM controls
+  - [x] Leave location
+  - [x] Play location music
+  - [x] Initial DM controls
 - [ ] `whl` Creation and deployment
 - [ ] v0.1.0 Re-work campaign GUI
 - [ ] Create example campaign
