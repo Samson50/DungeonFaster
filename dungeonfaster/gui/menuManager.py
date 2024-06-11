@@ -22,7 +22,7 @@ class MenuManager(ScreenManager):
         backButton = Button(
             text="<",
             pos_hint={"center_x": 0.1, "center_y": 0.9},
-            size_hint={0.15, 0.1},
+            size_hint=(0.15, 0.1),
         )
         backButton.bind(on_release=self.toLastScreen)
 

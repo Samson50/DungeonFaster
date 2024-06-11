@@ -10,7 +10,17 @@ This is a work in progress.
 - Media files for your campaign (maps, images, and/or audio files)
 
 ## Installation
-TODO
+### From Source
+```
+$ sudo apt install python3 pip3
+$ pip install poetry
+$ ./build.sh
+```
+
+### From Package
+```
+pip install dungeonfaster-0.0.1-py3-non-any.whl
+```
 
 ## Usage
 ### Campaign Creation
@@ -40,7 +50,7 @@ TODO
   - [x] Leave location
   - [x] Play location music
   - [x] Initial DM controls
-- [ ] `whl` Creation and deployment
+- [x] `whl` Creation and deployment
 - [ ] v0.1.0 Re-work campaign GUI
 - [ ] Create example campaign
 - [ ] v1.0.0 Add user guide and example walk-through

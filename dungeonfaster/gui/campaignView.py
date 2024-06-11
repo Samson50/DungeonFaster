@@ -22,6 +22,7 @@ DELTA_X_SHIFT = 15
 DELTA_Y_SHIFT = 15
 
 RESOURCES_DIR = os.path.join(os.environ["DUNGEONFASTER_PATH"], "resources")
+CAMPAIGNS_DIR = os.path.join(os.environ["DUNGEONFASTER_PATH"], "campaigns")
 
 # TODO: |
 #       V
@@ -131,6 +132,7 @@ class AudioPlayer:
         self.playlist[self.index].volume = self.volume
 
 
+# TODO: Use RelativeLayout?
 class CampaignView(FloatLayout):
 
     def __init__(self, screen: Screen, **kwargs):
@@ -254,6 +256,10 @@ class CampaignView(FloatLayout):
         self.map_clicked = self.interact
 
     def save(self, file):
+        # TODO: This works*, but is not intuitive behavior
+        if not os.path.isabs(file):
+            file = os.path.join(CAMPAIGNS_DIR, file)
+
         self.campaign.save(file)
 
     def load(self, load_path):

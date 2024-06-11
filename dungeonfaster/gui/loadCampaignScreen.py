@@ -1,5 +1,6 @@
 import os
 import json
+import shutil
 from datetime import datetime
 
 from kivy.uix.boxlayout import BoxLayout
@@ -9,6 +10,7 @@ from kivy.uix.screenmanager import Screen
 from kivy.uix.scrollview import ScrollView
 
 from dungeonfaster.gui.menuManager import MenuManager
+from dungeonfaster.gui.utilities import FileDialog
 
 
 CAMPAIGNS_DIR = os.path.join(os.environ["DUNGEONFASTER_PATH"], "campaigns")
@@ -33,7 +35,10 @@ class LoadCampaignEntry(BoxLayout):
             text=campaign_name, halign="left", valign="middle", size_hint=(0.25, 1)
         )
         name_label.text_size = name_label.size
-        file_label = Label(text=campaign_path, halign="left", size_hint=(0.25, 1))
+        display_path = campaign_path
+        if len(display_path) > 50:
+            display_path = display_path[:15] + "..." + display_path[-15:]
+        file_label = Label(text=display_path, halign="left", size_hint=(0.25, 1))
         last_modified_label = Label(text=mtime_str, halign="left", size_hint=(0.25, 1))
         load_button = Button(text="Load", size_hint=(0.25, 1))
         load_button.bind(on_press=load_cb)
@@ -51,8 +56,6 @@ class LoadCampaignScreen(Screen):
 
         self.menuManager = manager
 
-        # self.runCampaignScreen: RunCampaignScreen = None
-
         layout = BoxLayout(orientation="vertical")
 
         head_layout = BoxLayout(size_hint=(1, 0.2))
@@ -63,6 +66,20 @@ class LoadCampaignScreen(Screen):
             )
         )
         layout.add_widget(head_layout)
+
+        self.loadDialog = FileDialog(
+            select_text="Load",
+            popup_title="Load Campaign",
+            on_select=self.on_load_other,
+        )
+
+        self.load_other_button = Button(
+            text="Load Other",
+            size_hint=(0.15, 0.1),
+            pos_hint={"center_x": 0.9, "center_y": 0.9},
+        )
+        self.load_other_button.bind(on_release=self.loadDialog.openDialog)
+        self.add_widget(self.load_other_button)
 
         campaigns_layout = ScrollView(do_scroll_x=False, size_hint=(1, 0.8))
         list_layout = BoxLayout(
@@ -77,7 +94,7 @@ class LoadCampaignScreen(Screen):
             if campaign_file.endswith(".json"):
                 campaigns.append(LoadCampaignEntry(campaign_file, self.load_cb))
 
-        # TODO: I hate this relative size bull$#!7. How can I set explicit sizes and use relative positions?
+        # TODO: Use RelativeLayout
         # n_layouts = int(list_layout.height / 10)
 
         for campaign in campaigns:
@@ -94,11 +111,24 @@ class LoadCampaignScreen(Screen):
 
         self.menuManager.add_widget(self)
 
+    def load(self, campaign_path: os.PathLike) -> None:
+        self.manager.runCampaignScreen.load(campaign_path)
+        self.manager.last_screen = self.name
+        self.manager.current = self.manager.runCampaignScreen.name
+
     def load_cb(self, instance: Button):
         parent: LoadCampaignEntry = instance.parent
 
         path = os.path.join(CAMPAIGNS_DIR, parent.campaign_path)
 
-        self.manager.runCampaignScreen.load(path)
-        self.manager.last_screen = self.name
-        self.manager.current = self.manager.runCampaignScreen.name
+        self.load(path)
+
+    def on_load_other(self, instance: Button):
+        campaign_path = self.loadDialog.textInput.text
+        self.loadDialog.closeDialog(None)
+
+        self.load(campaign_path)
+
+        # Save a copy of campaign file in campaigns directory
+        campaign_name = os.path.basename(campaign_path)
+        shutil.copyfile(campaign_path, os.path.join(CAMPAIGNS_DIR, campaign_name))

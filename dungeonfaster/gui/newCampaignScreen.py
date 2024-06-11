@@ -21,7 +21,8 @@ from dungeonfaster.gui.utilities import (
 
 from dungeonfaster.model.location import Location
 from dungeonfaster.model.map import Map
-from dungeonfaster.model.campaign import Campaign
+
+CAMPAIGNS_DIR = os.path.join(os.environ["DUNGEONFASTER_PATH"], "campaigns")
 
 
 class NewCampaignScreen(Screen):
@@ -35,35 +36,33 @@ class NewCampaignScreen(Screen):
         layout = BoxLayout(orientation="vertical")
 
         # Header layout items
-        saveDialog = FileDialog(
+        self.saveDialog = FileDialog(
             select_text="Save",
             popup_title="Save Campaign",
             on_select=self.onSaveCampaign,
-            path="campaigns",
+            path=CAMPAIGNS_DIR,
         )
-        self.saveDialog = saveDialog
 
-        loadDialog = FileDialog(
+        self.loadDialog = FileDialog(
             select_text="Load",
             popup_title="Load Campaign",
             on_select=self.onLoadCampaign,
-            path="campaigns",
+            path=CAMPAIGNS_DIR,
         )
-        self.loadDialog = loadDialog
 
         save_button = Button(
             text="Save",
             pos_hint={"center_x": 0.9, "center_y": 0.9},
             size_hint=(0.15, 0.05),
         )
-        save_button.bind(on_release=saveDialog.openDialog)
+        save_button.bind(on_release=self.saveDialog.openDialog)
         self.add_widget(save_button)
         load_button = Button(
             text="Load",
             pos_hint={"center_x": 0.9, "center_y": 0.85},
             size_hint=(0.15, 0.05),
         )
-        load_button.bind(on_release=loadDialog.openDialog)
+        load_button.bind(on_release=self.loadDialog.openDialog)
         self.add_widget(load_button)
 
         layout.add_widget(
