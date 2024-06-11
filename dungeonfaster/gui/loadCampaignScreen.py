@@ -8,9 +8,10 @@ from kivy.uix.label import Label
 from kivy.uix.screenmanager import Screen
 from kivy.uix.scrollview import ScrollView
 
-from gui.menuManager import MenuManager
+from dungeonfaster.gui.menuManager import MenuManager
 
-CAMPAIGNS_DIR = "campaigns"
+
+CAMPAIGNS_DIR = os.path.join(os.environ["DUNGEONFASTER_PATH"], "campaigns")
 
 
 class LoadCampaignEntry(BoxLayout):

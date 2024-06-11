@@ -1,15 +1,9 @@
 import os
-import json
-from datetime import datetime
 
-from kivy.uix.boxlayout import BoxLayout
-from kivy.uix.button import Button
-from kivy.uix.label import Label
 from kivy.uix.screenmanager import Screen
-from kivy.uix.scrollview import ScrollView
 
-from gui.campaignView import CampaignView
-from gui.menuManager import MenuManager
+from dungeonfaster.gui.campaignView import CampaignView
+from dungeonfaster.gui.menuManager import MenuManager
 
 
 class RunCampaignScreen(Screen):
@@ -33,5 +27,3 @@ class RunCampaignScreen(Screen):
 
     def load(self, campaign_path: os.PathLike) -> None:
         self.campaign_view.load(campaign_path)
-
-        # TODO: Play music for initial location

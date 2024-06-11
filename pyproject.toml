@@ -1,0 +1,12 @@
+[tool.poetry]
+name = "dungeonfaster"
+version = "0.0.1"
+description = ""
+authors = ["First Last <me@email.com>"]
+readme = "README.md"
+packages = [{include = "dungeonfaster"}]
+
+[tool.poetry.dependencies]
+python = "^3.10"
+kivy = "^2.3"
+ffpyplayer = "^4.5"

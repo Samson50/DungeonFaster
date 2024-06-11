@@ -4,7 +4,7 @@ A simple way to spice up your DnD (or other TTRPG) campaign and be the coolest D
 This is a work in progress. 
 
 ## Requirements
-- Python3 (TODO: Specific version?)
+- Python3.10
 - Kivy
 - ffpyplayer
 - Media files for your campaign (maps, images, and/or audio files)

@@ -3,7 +3,7 @@ import os
 from kivy.uix.widget import Widget
 from kivy.core.audio import SoundLoader, Sound
 
-from model.map import Map
+from dungeonfaster.model.map import Map
 
 
 class Location:

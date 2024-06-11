@@ -6,10 +6,10 @@
 
 from kivy.app import App
 
-from gui.loadCampaignScreen import LoadCampaignScreen
-from gui.menuManager import MenuManager
-from gui.newCampaignScreen import NewCampaignScreen
-from gui.runCampaignScreen import RunCampaignScreen
+from dungeonfaster.gui.loadCampaignScreen import LoadCampaignScreen
+from dungeonfaster.gui.menuManager import MenuManager
+from dungeonfaster.gui.newCampaignScreen import NewCampaignScreen
+from dungeonfaster.gui.runCampaignScreen import RunCampaignScreen
 
 
 class DungeonFasterApp(App):

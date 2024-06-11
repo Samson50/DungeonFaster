@@ -4,8 +4,11 @@ from kivy.uix.image import Image
 from kivy.uix.widget import Widget
 from kivy.graphics import Rectangle
 
-from model.grid import Grid, SquareGrid, HexGrid
-from model.window import Window
+from dungeonfaster.model.grid import Grid, SquareGrid, HexGrid
+from dungeonfaster.model.window import Window
+
+
+RESOURCES_DIR = os.path.join(os.environ["DUNGEONFASTER_PATH"], "resources")
 
 GRID_TYPE_SQUARE = "square"
 GRID_TYPE_HEX = "hex"
@@ -27,7 +30,7 @@ class Map:
         self.drawn_poi: dict[tuple[int, int], Rectangle] = {}
 
         self.load_image(map_file)
-        self.tile: Image = Image(source="resources/map/highlight_grid.png")
+        # self.tile: Image = Image(source="resources/map/highlight_grid.png")
 
         # Offset of screen viewing map
         self.window.x = 0
@@ -161,7 +164,9 @@ class Map:
                     poi_rect = self.drawn_poi[poi]
                     self.grid.updateRect(poi_rect, poi[0], poi[1])
                 else:
-                    poi_rect = self.grid.getRect(*poi, "resources/icons/poi.png")
+                    poi_rect = self.grid.getRect(
+                        *poi, os.path.join(RESOURCES_DIR, "icons", "poi.png")
+                    )
 
                 # If the PoI is within the display window
                 if self.window.showing(poi_rect):

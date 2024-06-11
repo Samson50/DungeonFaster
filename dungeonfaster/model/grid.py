@@ -1,10 +1,13 @@
 import math
+import os
 
 from kivy.graphics import Rectangle
 from kivy.uix.image import Image
 from kivy.uix.widget import Widget
 
-from model.window import Window
+from dungeonfaster.model.window import Window
+
+RESOURCES_DIR = os.path.join(os.environ["DUNGEONFASTER_PATH"], "resources")
 
 
 class Grid:
@@ -208,8 +211,10 @@ class SquareGrid(Grid):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        self.highlight_image_path = "resources/map/highlight_grid.png"
-        self.hidden_image_path = "resources/map/grid.png"
+        self.highlight_image_path = os.path.join(
+            RESOURCES_DIR, "map", "highlight_grid.png"
+        )
+        self.hidden_image_path = os.path.join(RESOURCES_DIR, "map", "grid.png")
 
     def adjacent(self, x: int, y: int) -> list[tuple[int, int]]:
         tiles = [
@@ -279,8 +284,8 @@ class HexGrid(Grid):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        self.highlight_image_path = "resources/icons/highlight.png"
-        self.hidden_image_path = "resources/map/hexes.png"
+        self.highlight_image_path = os.path.join(RESOURCES_DIR, "map", "highlight.png")
+        self.hidden_image_path = os.path.join(RESOURCES_DIR, "map", "hexes.png")
 
     def adjacent(self, x: int, y: int) -> list[tuple[int, int]]:
         tiles = [(x, y + 2), (x, y - 2)]

@@ -10,13 +10,18 @@ from kivy.uix.label import Label
 from kivy.uix.switch import Switch
 from kivy.uix.textinput import TextInput
 
-from gui.menuManager import MenuManager
-from gui.campaignView import CampaignView
-from gui.utilities import FileDialog, LabeledIntInput, EditableListEntry, CollapseItem
+from dungeonfaster.gui.menuManager import MenuManager
+from dungeonfaster.gui.campaignView import CampaignView
+from dungeonfaster.gui.utilities import (
+    FileDialog,
+    LabeledIntInput,
+    EditableListEntry,
+    CollapseItem,
+)
 
-from model.location import Location
-from model.map import Map
-from model.campaign import Campaign
+from dungeonfaster.model.location import Location
+from dungeonfaster.model.map import Map
+from dungeonfaster.model.campaign import Campaign
 
 
 class NewCampaignScreen(Screen):

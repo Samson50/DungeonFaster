@@ -1,7 +1,8 @@
 .idea/
 .vscode/
+dist/
 __pycache__
-campaigns/*.json
+dungeonfaster/campaigns/*.json
 venv/
 example/*
 !example/README.md

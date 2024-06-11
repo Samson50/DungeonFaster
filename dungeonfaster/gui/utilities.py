@@ -5,10 +5,30 @@ from kivy.uix.accordion import AccordionItem
 from kivy.uix.button import Button
 from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.filechooser import FileChooserListView
+from kivy.uix.image import Image
 from kivy.uix.label import Label
 from kivy.uix.popup import Popup
 from kivy.uix.scrollview import ScrollView
 from kivy.uix.textinput import TextInput
+
+
+class IconButton(Button):
+    def __init__(self, source, **kwargs):
+        super().__init__(**kwargs)
+
+        self.image = Image(
+            source=source,
+            size=(self.size[0] * 0.8, self.size[1] * 0.8),
+            pos=(self.x + self.width * 0.1, self.y + self.height * 0.1),
+        )
+
+        self.add_widget(self.image)
+
+    def on_size(self, instance, value):
+        self.image.size = (self.size[0] * 0.8, self.size[1] * 0.8)
+
+        self.image.x = self.x + self.width * 0.1
+        self.image.y = self.y + self.height * 0.1
 
 
 class EditableListEntry(BoxLayout):

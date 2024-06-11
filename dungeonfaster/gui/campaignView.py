@@ -1,6 +1,7 @@
-import time, os
+import os
 
 from kivy.core.audio import SoundLoader, Sound
+from kivy.core.window import Window, WindowBase
 from kivy.graphics import Rectangle
 from kivy.input.motionevent import MotionEvent
 from kivy.uix.button import Button
@@ -10,18 +11,25 @@ from kivy.uix.image import Image
 from kivy.uix.screenmanager import Screen
 from kivy.uix.slider import Slider
 
-from gui.utilities import FileDialog
+from dungeonfaster.gui.utilities import FileDialog, IconButton
 
-from model.location import Location
-from model.map import Map
-from model.campaign import Campaign
+from dungeonfaster.model.location import Location
+from dungeonfaster.model.map import Map
+from dungeonfaster.model.campaign import Campaign
 
 
 DELTA_X_SHIFT = 15
 DELTA_Y_SHIFT = 15
 
+RESOURCES_DIR = os.path.join(os.environ["DUNGEONFASTER_PATH"], "resources")
 
-class AudioController(BoxLayout):
+# TODO: |
+#       V
+# class DMControls(BoxLayout):
+#   def __init__(self, view: CampaignView)
+
+
+class AudioControllerLayout(BoxLayout):
     def __init__(self, campaign_view, **kwargs):
         super().__init__(orientation="horizontal", **kwargs)
 
@@ -35,7 +43,9 @@ class AudioController(BoxLayout):
         self.play_button.bind(on_release=self.play)
         self.skip_forward_button = Button(text=">>")
         self.skip_forward_button.bind(on_release=self.play_next)
-        self.combat_button = Button(text="><")
+        self.combat_button = IconButton(
+            os.path.join(RESOURCES_DIR, "icons", "swords.png")
+        )
         self.combat_button.bind(on_release=self.switch_combat)
         self.volume_up_button = Button(text="+")
         self.volume_up_button.bind(on_release=self.volume_up)
@@ -80,7 +90,7 @@ class AudioPlayer:
         self.playlist = playlist
         self.resume_position = 0
         self.index = 0
-        self.volume = 0.5
+        self.volume = 0  # 0.5
         self.started = 0
 
     def play(self):
@@ -125,18 +135,24 @@ class CampaignView(FloatLayout):
 
     def __init__(self, screen: Screen, **kwargs):
         super().__init__(**kwargs)
+        Window.bind(mouse_pos=self.on_mouse_pos)
 
         self.screen = screen
         self.party_icon = Rectangle(
-            source="resources/icons/party.png",
+            source=os.path.join(RESOURCES_DIR, "icons", "party.png")
         )
         self.party_bg = None
+        self.highlight_rect: Rectangle = None
         self.selected: tuple[int, int] = None
-        self.select_rect: Rectangle = Rectangle(source="resources/icons/selected.png")
+        self.select_rect: Rectangle = Rectangle(
+            source=os.path.join(RESOURCES_DIR, "icons", "selected.png")
+        )
         self.adjacent: list[Rectangle] = None
         self.position_stack: list[tuple[int, int]] = []
         self.map: Map = None
         self.campaign: Campaign = Campaign()
+
+        self.map_clicked = self.interact  # : callable[[int, int], None]
 
         self.player: AudioPlayer = None
         self.music: list[Sound] = []
@@ -179,6 +195,23 @@ class CampaignView(FloatLayout):
             pos_hint={"x": 0.0, "y": 0.05},
         )
 
+    def on_mouse_pos(self, window: WindowBase, pos: tuple[float, float]) -> None:
+        if not self.map:
+            return
+
+        (map_x, map_y) = self.map_layout.pos
+        (mouse_x, mouse_y) = pos
+        if self.map_layout.collide_point(*pos):
+            x, y = self.map.grid.pixel_to_index(mouse_x - map_x, mouse_y - map_y)
+            if not self.highlight_rect:
+                self.highlight_rect = self.map.grid.getHighlightRect(x, y)
+            if self.highlight_rect not in self.map_layout.children:
+                self.map_layout.canvas.add(self.highlight_rect)
+            self.map.grid.updateRect(self.highlight_rect, x, y)
+
+        elif self.highlight_rect in self.map_layout.canvas.children:
+            self.map_layout.canvas.remove(self.highlight_rect)
+
     def add_map_button(self) -> None:
         self.getMapButton = Button(text="Select Overworld Map")
         self.getMapButton.bind(on_release=self.selectOverworldMapDialog)
@@ -190,7 +223,7 @@ class CampaignView(FloatLayout):
         - Change/Stop music
         - Save campaign state
         """
-        self.audio_controller = AudioController(
+        self.audio_controller = AudioControllerLayout(
             self, size_hint=(0.3, 0.05), pos_hint={"x": 0.65, "y": 0.05}
         )
         self.add_widget(self.audio_controller)
@@ -201,6 +234,7 @@ class CampaignView(FloatLayout):
             pos_hint={"center_x": 0.8, "y": 0.1},
         )
         self.add_widget(self.move_party_button)
+        self.move_party_button.bind(on_release=self.on_move_party_button)
 
         self.save_button = Button(
             text="save", size_hint=(0.1, 0.05), pos_hint={"x": 0.85, "y": 0.9}
@@ -212,6 +246,13 @@ class CampaignView(FloatLayout):
         if self.map:
             self.draw()
 
+    def on_move_party_button(self, instance: Button) -> None:
+        self.map_clicked = self.location_selected
+
+    def location_selected(self, x: int, y: int) -> None:
+        self.move_party(x, y)
+        self.map_clicked = self.interact
+
     def save(self, file):
         self.campaign.save(file)
 
@@ -220,10 +261,18 @@ class CampaignView(FloatLayout):
         self.campaign.load(load_path, self.map_layout)
         self.map = self.campaign.current_location.map
         self.set_sliders()
+        self._by_scroll()
+
+        # Get first parent with music
+        tmp: Location = self.campaign.current_location
+        while tmp.parent is not None and len(tmp.music) == 0:
+            tmp = tmp.parent
 
         # Load musics as list of Sound
-        # TODO: Get first parent with music
-        self.update_playlist(self.campaign.current_location)
+        if len(tmp.music) > 0:
+            self.update_playlist(tmp)
+
+        self.draw()
 
     def update_playlist(self, location: Location) -> None:
         for song in location.music:
@@ -269,6 +318,9 @@ class CampaignView(FloatLayout):
             self.map_layout.canvas.add(self.party_icon)
 
     def clear_adjacent(self) -> None:
+        if not self.adjacent:
+            return
+
         for tile in self.adjacent:
             if tile in self.map_layout.canvas.children:
                 self.map_layout.canvas.remove(tile)
@@ -349,6 +401,8 @@ class CampaignView(FloatLayout):
         self.map.drawn_tiles = []
         self.map.map_rect = None
         self.map.getZoomForSurface(self.map_layout)
+        self._by_scroll()
+
         self.draw()
 
     def add_location(self, location: Location, x: int, y: int) -> None:
@@ -411,6 +465,14 @@ class CampaignView(FloatLayout):
         if self.leave_button not in self.children:
             self.add_widget(self.leave_button)
 
+    def on_button(self, px: float, py: float) -> bool:
+        children = [x for x in self.children]
+        children.remove(self.map_layout)
+        for child in children:
+            if child.collide_point(px, py):
+                return True
+        return False
+
     def on_click(self, layout: FloatLayout, event: MotionEvent):
         if event.is_mouse_scrolling:
             if event.button == "scrolldown":
@@ -424,6 +486,10 @@ class CampaignView(FloatLayout):
         if self.x_slider.collide_point(mouse_x, mouse_y) or self.y_slider.collide_point(
             mouse_x, mouse_y
         ):
+            return
+
+        # One of the buttons is already responding to this event, ignore
+        if self.on_button(mouse_x, mouse_y):
             return
 
         if self.map:
@@ -441,7 +507,7 @@ class CampaignView(FloatLayout):
                     )
                     print(f"{(x, y)}")
                     if self.running:
-                        self.interact(x, y)
+                        self.map_clicked(x, y)
                     else:
                         self.map.grid.flip_tile(x, y)
                     self.draw()
@@ -464,18 +530,21 @@ class CampaignView(FloatLayout):
             # Move party to new location
             if self.selected == self.campaign.position:
                 if (x, y) in self.map.grid.adjacent(*self.campaign.position):
-                    self.campaign.position = (x, y)
-                    self.clear_adjacent()
-                    self.selected = None
-
-                    # Reveal adjacent tiles
-                    for adjacent in self.map.grid.adjacent(x, y):
-                        self.map.reveal(*adjacent)
+                    self.move_party(x, y)
 
         elif self.map.revealed(x, y):
             self.selected = (x, y)
         elif self.map.hidden_tiles:
             self.map.flip_at_index(x, y)
+
+    def move_party(self, x: int, y: int) -> None:
+        self.campaign.position = (x, y)
+        self.clear_adjacent()
+        self.selected = None
+
+        # Reveal adjacent tiles
+        for adjacent in self.map.grid.adjacent(x, y):
+            self.map.reveal(*adjacent)
 
     def zoomIn(self, value: float):
         if self.map is None:

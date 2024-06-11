@@ -3,8 +3,8 @@ import json
 
 from kivy.uix.widget import Widget
 
-from model.location import Location
-from model.map import Map
+from dungeonfaster.model.location import Location
+from dungeonfaster.model.map import Map
 
 
 class Campaign:
