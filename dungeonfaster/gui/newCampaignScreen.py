@@ -73,6 +73,12 @@ class NewCampaignScreen(Screen):
             )
         )
 
+        self.campaign_name = TextInput(
+            size_hint=(0.3, 0.05), pos_hint={"center_x": 0.5, "center_y": 0.85}
+        )
+        self.campaign_name.bind(text=self.on_text)
+        self.add_widget(self.campaign_name)
+
         # Main layout
         editor_layout = BoxLayout(orientation="horizontal", size_hint=(1, 0.8))
         layout.add_widget(editor_layout)
@@ -80,6 +86,10 @@ class NewCampaignScreen(Screen):
         # Map layout
         self.campaign_view = CampaignView(self, size_hint=(0.7, 1))
         self.campaign_view.bind(on_touch_down=self.campaign_view.on_click)
+        self.getMapButton = Button(text="Select Overworld Map")
+        self.getMapButton.bind(on_release=self.selectOverworldMapDialog)
+        self.campaign_view.add_widget(self.getMapButton)
+
         editor_layout.add_widget(self.campaign_view)
 
         # Map controls layout
@@ -97,6 +107,34 @@ class NewCampaignScreen(Screen):
             size_hint=(0.1, 0.075),
         )
         self.location_back_button.bind(on_release=self.location_back_cb)
+
+    def on_text(self, instance: TextInput, value: str) -> None:
+        self.campaign_view.campaign.name = value
+
+    def selectOverworldMapDialog(self, instance):
+        self.overworldMapDialog = FileDialog(
+            popup_title="Select Overworld Map",
+            on_select=self.saveOverworldMap,
+        )
+
+        self.overworldMapDialog.openDialog(None)
+
+    def saveOverworldMap(self, instance):
+        # Set overworld map file
+        overworldMapFile = self.overworldMapDialog.textInput.text
+        self.campaign_view.remove_widget(self.getMapButton)
+        self.overworldMapDialog.closeDialog(None)
+
+        base_location = Location("overworld", 0, 0)
+        base_location.set_map(overworldMapFile)
+        self.campaign_view.map = base_location.map
+
+        self.campaign_view.add_location(base_location, 0, 0)
+
+        self.campaign_view.map.getZoomForSurface(self.campaign_view.map_layout)
+        self.campaign_view.draw()
+
+        self.campaign_view.set_sliders()
 
     def location_back_cb(self, instance):
         current_location = self.campaign_view.leave()
@@ -120,10 +158,14 @@ class NewCampaignScreen(Screen):
         except Exception as e:
             print(e)
             return
+        self.campaign_view.remove_widget(self.getMapButton)
 
         # If location.parent, add back button
         if self.campaign_view.campaign.current_location.parent is not None:
             self.addBackButton()
+
+        # Update campaign name from loaded
+        self.campaign_name.text = self.campaign_view.campaign.name
 
         # Update controllers with values loaded from campaign
         self.controls_layout.update_from_map(self.campaign_view.map)

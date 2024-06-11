@@ -168,9 +168,6 @@ class CampaignView(FloatLayout):
         )
         self.add_widget(self.map_layout)
 
-        # TODO: Only call when creating map
-        self.add_map_button()
-
         # Button to leave current location - go to parent
         self.leave_button = Button(
             text="leave", pos_hint={"x": 0.05, "y": 0.90}, size_hint=(0.1, 0.05)
@@ -213,11 +210,6 @@ class CampaignView(FloatLayout):
 
         elif self.highlight_rect in self.map_layout.canvas.children:
             self.map_layout.canvas.remove(self.highlight_rect)
-
-    def add_map_button(self) -> None:
-        self.getMapButton = Button(text="Select Overworld Map")
-        self.getMapButton.bind(on_release=self.selectOverworldMapDialog)
-        self.add_widget(self.getMapButton)
 
     def add_controls(self) -> None:
         """Add buttons for DM control:
@@ -263,7 +255,6 @@ class CampaignView(FloatLayout):
         self.campaign.save(file)
 
     def load(self, load_path):
-        self.remove_widget(self.getMapButton)
         self.campaign.load(load_path, self.map_layout)
         self.map = self.campaign.current_location.map
         self.set_sliders()
@@ -293,15 +284,6 @@ class CampaignView(FloatLayout):
         if len(self.music) > 0:
             self.player = AudioPlayer(self.music)
             self.player.play()
-
-    # TODO: move back to newCampaignScreen
-    def selectOverworldMapDialog(self, instance):
-        self.overworldMapDialog = FileDialog(
-            popup_title="Select Overworld Map",
-            on_select=self.saveOverworldMap,
-        )
-
-        self.overworldMapDialog.openDialog(None)
 
     def draw(self) -> None:
         self.map.draw()
@@ -357,23 +339,6 @@ class CampaignView(FloatLayout):
 
             if self.adjacent:
                 self.clear_adjacent()
-
-    def saveOverworldMap(self, instance):
-        # Set overworld map file
-        overworldMapFile = self.overworldMapDialog.textInput.text
-        self.remove_widget(self.getMapButton)
-        self.overworldMapDialog.closeDialog(None)
-
-        base_location = Location("overworld", 0, 0)
-        base_location.set_map(overworldMapFile)
-        self.map = base_location.map
-
-        self.add_location(base_location, 0, 0)
-
-        self.map.getZoomForSurface(self.map_layout)
-        self.draw()
-
-        self.set_sliders()
 
     def set_sliders(self):
         self.add_widget(self.x_slider)

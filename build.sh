@@ -14,3 +14,7 @@ poetry build
 
 # Install:
 pip install dist/dungeonfaster-*.whl
+
+# Windows: https://kivy.org/doc/stable/guide/packaging-windows.html
+# Android: https://kivy.org/doc/stable/guide/packaging-android.html
+# iOS: https://kivy.org/doc/stable/guide/packaging-ios.html
