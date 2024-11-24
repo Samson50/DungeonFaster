@@ -35,6 +35,7 @@ class AudioControllerLayout(BoxLayout):
         super().__init__(orientation="horizontal", **kwargs)
 
         self.campaign_view: CampaignView = campaign_view
+        self.in_combat = False
 
         self.skip_back_button = Button(text="<<")
         # self.skip_back_button.bind(on_release=self.play_previous)
@@ -76,8 +77,12 @@ class AudioControllerLayout(BoxLayout):
         self.campaign_view.player.play_next()
 
     def switch_combat(self, instance: Button) -> None:
-        print("TODO")
-        pass
+        if self.in_combat:
+            self.campaign_view.player.change_playlist(self.campaign_view.music)
+        else:
+            self.campaign_view.player.change_playlist(self.campaign_view.combat_music)
+
+        self.in_combat = not self.in_combat
 
     def volume_up(self, instance: Button) -> None:
         self.campaign_view.player.volume_up()
@@ -93,6 +98,12 @@ class AudioPlayer:
         self.index = 0
         self.volume = 0  # 0.5
         self.started = 0
+
+    def change_playlist(self, playlist: list[Sound]):
+        self._stop(self.playlist[self.index])
+        self.index = 0
+        self.playlist = playlist
+        self.play()
 
     def play(self):
         self.playlist[self.index].play()
@@ -447,9 +458,9 @@ class CampaignView(FloatLayout):
     def on_click(self, layout: FloatLayout, event: MotionEvent):
         if event.is_mouse_scrolling:
             if event.button == "scrolldown":
-                self.zoomIn(0.0)
+                self.zoomIn()
             elif event.button == "scrollup":
-                self.zoomOut(0.0)
+                self.zoomOut()
             return
 
         (mouse_x, mouse_y) = event.pos
@@ -517,13 +528,13 @@ class CampaignView(FloatLayout):
         for adjacent in self.map.grid.adjacent(x, y):
             self.map.reveal(*adjacent)
 
-    def zoomIn(self, value: float):
+    def zoomIn(self):
         if self.map is None:
             return
         self.map.window.zoom -= 1
         self._by_scroll()
 
-    def zoomOut(self, value: float):
+    def zoomOut(self):
         if self.map is None:
             return
         self.map.window.zoom += 1

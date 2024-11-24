@@ -4,6 +4,7 @@ import json
 from kivy.uix.widget import Widget
 
 from dungeonfaster.model.location import Location
+from dungeonfaster.model.player import Player
 from dungeonfaster.model.map import Map
 
 
@@ -14,6 +15,7 @@ class Campaign:
         self.position: tuple[int, int] = (0, 0)
         self.locations: dict[tuple[int, int], Location] = {}
         self.current_location: Location = None
+        self.party: list[Player] = []
 
     def save(self, out_path: str | os.PathLike) -> None | Exception:
         data_dict = {}
@@ -21,6 +23,11 @@ class Campaign:
         data_dict["position"] = self.position
 
         data_dict["current_location"] = self.current_location.name
+
+        party: list[dict] = []
+        for player in self.party:
+            party.append(player.save())
+        data_dict["party"] = party
 
         locations_dict = {}
         for location in self.locations.keys():
@@ -40,6 +47,12 @@ class Campaign:
         with open(load_path, "r") as load_file:
             string_data = load_file.read()
             load_data = json.loads(string_data)
+
+        if "party" in load_data.keys():
+            for player_dict in load_data["party"]:
+                new_player: Player = Player()
+                new_player.load(player_dict)
+                self.party.append(new_player)
 
         self.name = load_data["name"]
         self.position = tuple(load_data["position"])

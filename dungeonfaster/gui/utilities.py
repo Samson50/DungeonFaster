@@ -11,6 +11,8 @@ from kivy.uix.popup import Popup
 from kivy.uix.scrollview import ScrollView
 from kivy.uix.textinput import TextInput
 
+from dungeonfaster.model.player import Player
+
 
 class IconButton(Button):
     def __init__(self, source, **kwargs):
@@ -173,6 +175,17 @@ class LabeledIntInput(BoxLayout):
         self.update_value(self.value)
 
 
+class LabeledTextInput(BoxLayout):
+    def __init__(self, text: str, on_text, **kwargs):
+        super().__init__(orientation="horizontal", **kwargs)
+
+        self.input_text = TextInput(size_hint=(0.7, 1))
+        self.input_text.bind(text=on_text)
+        self.input_label = Label(text=text, size_hint=(0.3, 1))
+        self.add_widget(self.input_label)
+        self.add_widget(self.input_text)
+
+
 class FloatInput(TextInput):
 
     def __init__(self, container: LabeledIntInput, **kwargs):
@@ -194,14 +207,11 @@ class FloatInput(TextInput):
         return None
 
 
-class FileDialog(BoxLayout):
-
+class SimpleDialog(BoxLayout):
     def __init__(
         self,
-        select_text="select",
-        popup_title="Select File",
-        on_select=None,
-        path=os.path.expanduser("~"),
+        popup_title="Something",
+        select_text="Select",
         **kwargs,
     ):
         super().__init__(orientation="vertical", **kwargs)
@@ -209,25 +219,19 @@ class FileDialog(BoxLayout):
         self._popup = None
         self.popup_title = popup_title
 
-        fileChooser = FileChooserListView(path=path)
-        fileChooser.bind(selection=self.set_text)
-        textInput = TextInput(size_hint_y=None, height=30)
-        self.textInput = textInput
+        self.content_layout = BoxLayout(orientation="vertical")
 
-        buttonsLayout = BoxLayout(orientation="horizontal", height=30, size_hint_y=None)
-        cancelButton = Button(text="cancel")
-        cancelButton.bind(on_release=self.closeDialog)
-        selectButton = Button(text=select_text)
-        if on_select:
-            selectButton.bind(on_release=on_select)
-        else:
-            selectButton.bind(on_release=self.closeDialog)
-        buttonsLayout.add_widget(cancelButton)
-        buttonsLayout.add_widget(selectButton)
+        self.buttonsLayout = BoxLayout(
+            orientation="horizontal", height=30, size_hint_y=None
+        )
+        self.cancelButton = Button(text="Cancel")
+        self.cancelButton.bind(on_release=self.closeDialog)
+        self.selectButton = Button(text=select_text)
+        self.buttonsLayout.add_widget(self.cancelButton)
+        self.buttonsLayout.add_widget(self.selectButton)
 
-        self.add_widget(fileChooser)
-        self.add_widget(textInput)
-        self.add_widget(buttonsLayout)
+        self.add_widget(self.content_layout)
+        self.add_widget(self.buttonsLayout)
 
     def openDialog(self, ignored):
         if self._popup is None:
@@ -239,6 +243,69 @@ class FileDialog(BoxLayout):
 
     def closeDialog(self, ignored):
         self._popup.dismiss()
+
+
+class NewPlayerDialog(SimpleDialog):
+    def __init__(self, **kwargs):
+        super().__init__(
+            popup_title="New Player",
+            select_text="Add Player",
+            **kwargs,
+        )
+
+        self.player = Player()
+
+        self.name_input = LabeledTextInput("Name: ", self.on_name)
+        self.class_input = LabeledTextInput("Class: ", self.on_class)
+        self.race_input = LabeledTextInput("Class: ", self.on_race)
+        self.level_input = LabeledIntInput("Level", self.on_level, 1, 1)
+
+        self.content_layout.add_widget(self.name_input)
+        self.content_layout.add_widget(self.class_input)
+        self.content_layout.add_widget(self.race_input)
+        self.content_layout.add_widget(self.level_input)
+
+    def on_name(self, instance, value):
+        self.player.name = value
+
+    def on_class(self, instance, value):
+        self.player.cls = value
+
+    def on_race(self, instance, value):
+        self.player.race = value
+
+    def on_level(self, value: int):
+        self.player.level = value
+
+
+class FileDialog(SimpleDialog):
+
+    def __init__(
+        self,
+        select_text="Select",
+        popup_title="Select File",
+        on_select=None,
+        path=os.path.expanduser("~"),
+        **kwargs,
+    ):
+        super().__init__(
+            popup_title=popup_title,
+            select_text=select_text,
+            **kwargs,
+        )
+
+        fileChooser = FileChooserListView(path=path)
+        fileChooser.bind(selection=self.set_text)
+        textInput = TextInput(size_hint_y=None, height=30)
+        self.textInput = textInput
+
+        if on_select:
+            self.selectButton.bind(on_release=on_select)
+        else:
+            self.selectButton.bind(on_release=self.closeDialog)
+
+        self.content_layout.add_widget(fileChooser)
+        self.content_layout.add_widget(textInput)
 
     def set_text(self, obj, val):
         self.textInput.text = val[0]

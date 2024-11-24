@@ -2,7 +2,7 @@ import os
 
 from kivy.graphics import Rectangle, Color
 from kivy.input.motionevent import MotionEvent
-from kivy.uix.accordion import Accordion
+from kivy.uix.accordion import Accordion, AccordionItem
 from kivy.uix.button import Button
 from kivy.uix.screenmanager import Screen
 from kivy.uix.boxlayout import BoxLayout
@@ -13,14 +13,17 @@ from kivy.uix.textinput import TextInput
 from dungeonfaster.gui.menuManager import MenuManager
 from dungeonfaster.gui.campaignView import CampaignView
 from dungeonfaster.gui.utilities import (
+    CollapseItem,
+    EditableListEntry,
     FileDialog,
     LabeledIntInput,
-    EditableListEntry,
-    CollapseItem,
+    LabeledTextInput,
+    NewPlayerDialog,
 )
 
 from dungeonfaster.model.location import Location
 from dungeonfaster.model.map import Map
+from dungeonfaster.model.player import Player
 
 CAMPAIGNS_DIR = os.path.join(os.environ["DUNGEONFASTER_PATH"], "campaigns")
 
@@ -168,14 +171,14 @@ class NewCampaignScreen(Screen):
         self.campaign_name.text = self.campaign_view.campaign.name
 
         # Update controllers with values loaded from campaign
-        self.controls_layout.update_from_map(self.campaign_view.map)
-        self.controls_layout.name_text.text = (
+        self.controls_layout.map_editor_layout.update_from_map(self.campaign_view.map)
+        self.controls_layout.map_editor_layout.name_input.text = (
             self.campaign_view.campaign.current_location.name
         )
 
         # Make sure we show hidden tiles if necessary
         if self.campaign_view.map.hidden_tiles:
-            self.controls_layout.hidden_switch.active = True
+            self.controls_layout.map_editor_layout.hidden_switch.active = True
         else:
             # Activating switch will re-draw map otherwise
             self.campaign_view.map.draw()
@@ -204,7 +207,7 @@ class NewCampaignScreen(Screen):
     def toLocation(self, location: Location):
         self.campaign_view.campaign.current_location = location
 
-        self.controls_layout.name_text.text = location.name
+        self.controls_layout.map_editor_layout.name_input.text = location.name
 
         # Add back button to go back to higher location
         if location.parent is not None:
@@ -234,27 +237,22 @@ class NewCampaignScreen(Screen):
         self.controls_layout.locations_list.removeEntry(parent)
 
 
-class ControllerLayout(BoxLayout):
-
+class MapEditorLayout(BoxLayout):
     def __init__(self, screen: NewCampaignScreen, **kwargs):
-        super().__init__(orientation="vertical", size_hint=(0.3, 1), **kwargs)
-
-        # TODO: Overarching input for campaign name
-
-        self.bg_color = Color(0.0, 0.0, 0.0)
-        self.bg_rect = Rectangle(size=self.size, pos=self.pos)
-        self.canvas.add(self.bg_color)
-        self.canvas.add(self.bg_rect)
-
+        super().__init__(orientation="vertical", size_hint=(1, 1), **kwargs)
         self.screen = screen
 
-        self.name_layout = BoxLayout(orientation="horizontal", size_hint=(1, 0.08))
-        self.name_text = TextInput(size_hint=(0.7, 1))
-        self.name_text.bind(text=self.on_text)
-        self.name_label = Label(text="Name: ", size_hint=(0.3, 1))
-        self.name_layout.add_widget(self.name_label)
-        self.name_layout.add_widget(self.name_text)
-        self.add_widget(self.name_layout)
+        self.name_input = LabeledTextInput("Name: ", self.on_text, size_hint=(1, 0.08))
+        self.add_widget(self.name_input)
+
+        # TODO: Add map file entry and edit button to change current location map
+        self.map_file_layout = BoxLayout(orientation="horizontal", size_hint=(1, 0.08))
+        self.map_file_layout.add_widget(Label(text="Map File:", size_hint=(0.3, 1)))
+        self.map_file_label = Label(text="None", size_hint=(0.5, 1))
+        self.map_file_layout.add_widget(self.map_file_label)
+        self.map_file_button = Button(text="edit", size_hint=(0.2, 1))
+        self.map_file_layout.add_widget(self.map_file_button)
+        self.add_widget(self.map_file_layout)
 
         self.density_controller = LabeledIntInput(
             "Box Size", self.setDensity, 0.5, 100, size_hint=(1, 0.08)
@@ -309,16 +307,142 @@ class ControllerLayout(BoxLayout):
         self.hide_buttons_layout.add_widget(all_off_button)
         self.hide_buttons_layout.add_widget(invert_button)
 
+    def on_text(self, instance: TextInput, value: str) -> None:
+        self.screen.campaign_view.campaign.current_location.name = value
+
+    def allOn(self, instance):
+        for i in range(len(self.screen.campaign_view.map.grid.matrix)):
+            for j in range(len(self.screen.campaign_view.map.grid.matrix[i])):
+                if self.screen.campaign_view.map.grid.matrix[i][j] == 0:
+                    self.screen.campaign_view.map.grid.flip_tile(i, j)
+        self.screen.campaign_view.map.draw()
+
+    def allOff(self, instance):
+        for i in range(len(self.screen.campaign_view.map.grid.matrix)):
+            for j in range(len(self.screen.campaign_view.map.grid.matrix[i])):
+                if self.screen.campaign_view.map.grid.matrix[i][j] == 1:
+                    self.screen.campaign_view.map.grid.flip_tile(i, j)
+        self.screen.campaign_view.map.draw()
+
+    def invertTiles(self, instance):
+        for i in range(len(self.screen.campaign_view.map.grid.matrix)):
+            for j in range(len(self.screen.campaign_view.map.grid.matrix[i])):
+                self.screen.campaign_view.map.grid.flip_tile(i, j)
+        self.screen.campaign_view.map.draw()
+
+    def update_from_map(self, map: Map):
+        self.map_file_label.text = os.path.basename(map.map_file)
+        self.density_controller.input.text = str(map.grid.pixel_density)
+        self.density_controller.value = map.grid.pixel_density
+        self.xOffsetController.input.text = str(map.grid.x_offset)
+        self.xOffsetController.value = map.grid.x_offset
+        self.yOffsetController.input.text = str(map.grid.y_offset)
+        self.yOffsetController.value = map.grid.y_offset
+        self.xMarginController.input.text = str(map.grid.x_margin)
+        self.xMarginController.value = map.grid.x_margin
+        self.yMarginController.input.text = str(map.grid.y_margin)
+        self.yMarginController.value = map.grid.y_margin
+
+    def hex_switch_cb(self, instance: Switch, state: bool):
+        if not self.screen.campaign_view.map:
+            return
+
+        if state:
+            self.screen.campaign_view.map.toHex()
+        else:
+            self.screen.campaign_view.map.toSquare()
+
+        self.screen.campaign_view.map.draw()
+
+    def hidden_cb(self, instance: Switch, state: bool):
+        if self.screen.campaign_view.map:
+            self.screen.campaign_view.map.hidden_tiles = state
+        else:
+            return
+
+        if state:
+            # Add show tile buttons
+            index = self.children.index(self.hidden_switch_layout)
+            self.add_widget(self.hide_buttons_layout, index)
+        else:
+            # Remove / hide tile buttons
+            self.remove_widget(self.hide_buttons_layout)
+
+        self.screen.campaign_view.map.draw()
+
+    def setXOffset(self, value: float):
+        if self.screen.campaign_view.map is None:
+            print("What?")
+            return
+        self.screen.campaign_view.map.grid.x_offset = value
+        self.screen.campaign_view.map.draw()
+
+    def setYOffset(self, value: float):
+        if self.screen.campaign_view.map is None:
+            return
+        self.screen.campaign_view.map.grid.y_offset = value
+        self.screen.campaign_view.map.draw()
+
+    def setXMargin(self, value: float):
+        if self.screen.campaign_view.map is None:
+            return
+        self.screen.campaign_view.map.grid.x_margin = value
+        self.screen.campaign_view.map.update()
+        self.screen.campaign_view.map.draw()
+
+    def setYMargin(self, value: float):
+        if self.screen.campaign_view.map is None:
+            return
+        self.screen.campaign_view.map.grid.y_margin = value
+        self.screen.campaign_view.map.update()
+        self.screen.campaign_view.map.draw()
+
+    def setDensity(self, value: float):
+        if self.screen.campaign_view.map is None:
+            return
+        self.screen.campaign_view.map.grid.pixel_density = value
+        self.screen.campaign_view.map.update()
+        self.screen.campaign_view.map.draw()
+
+
+class ControllerLayout(BoxLayout):
+
+    def __init__(self, screen: NewCampaignScreen, **kwargs):
+        super().__init__(orientation="vertical", size_hint=(0.3, 1), **kwargs)
+
+        # TODO: Overarching input for campaign name
+
+        self.bg_color = Color(0.0, 0.0, 0.0)
+        self.bg_rect = Rectangle(size=self.size, pos=self.pos)
+        self.canvas.add(self.bg_color)
+        self.canvas.add(self.bg_rect)
+
+        self.screen = screen
+
+        self.new_player_dialog = NewPlayerDialog()
+
         # TODO: Only activate once map is selected / loaded
 
-        # Collapsible view for optional items: sub-locations, music, and combat music
         self.accordion = Accordion(orientation="vertical", size_hint=(1, 0.6))
 
+        self.map_editor_layout = MapEditorLayout(self.screen)
+        map_item = AccordionItem(title="Edit Map")
+        map_item.add_widget(self.map_editor_layout)
+        self.accordion.add_widget(map_item)
+
+        # Locations
         self.locations_list = CollapseItem(
             "Add Location", self.add_location_cb, title="Locations"
         )
         self.accordion.add_widget(self.locations_list)
 
+        # Players
+        self.players_list = CollapseItem(
+            "Add Player", self.add_player_cb, title="Party"
+        )
+        self.accordion.add_widget(self.players_list)
+
+        # Music
         self.music_list = CollapseItem("Add Music", self.add_music_cb, title="Music")
         self.accordion.add_widget(self.music_list)
 
@@ -327,43 +451,19 @@ class ControllerLayout(BoxLayout):
         )
         self.accordion.add_widget(self.combat_music_list)
 
+        self.accordion.select(map_item)
+
         # TODO: Add items / other markers to map
         # self.items_list = ...
 
         self.add_widget(self.accordion)
 
-    def on_text(self, instance: TextInput, value: str) -> None:
-        self.screen.campaign_view.campaign.current_location.name = value
+    def on_size(self, instance, value):
+        # Re-draw black background
+        self.bg_rect.pos = self.pos
+        self.bg_rect.size = self.size
 
-    def set_locations(self, locations: dict[tuple[int, int], Location]):
-        self.locations_list.clearList()
-        for index in locations.keys():
-            self.addLocationEntry(locations[index])
-
-    def addLocationEntry(self, location: Location):
-        new_location_entry = EditableListEntry(
-            f"{location.index}\n{os.path.basename(location.map.map_file)}",
-            location,
-            self.screen.edit_location_cb,
-            self.screen.delete_location_cb,
-        )
-
-        self.locations_list.addEntry(new_location_entry)
-
-    def addMusicEntry(self, musicFile: str, musicList: CollapseItem):
-        delete = self.delete_combat_music_cb
-        if musicList == self.music_list:
-            delete = self.delete_music_cb
-
-        new_music_entry = EditableListEntry(
-            musicFile,
-            self.screen.campaign_view.campaign.current_location,
-            None,
-            delete,
-        )
-        musicList.addEntry(new_music_entry)
-
-    def add_location_cb(self, instance):
+    def add_location_cb(self, instance: Button) -> Label:
         # Set campaign_view click to selecting tile for location
         self.screen.campaign_view.unbind(
             on_touch_down=self.screen.campaign_view.on_click
@@ -417,6 +517,45 @@ class ControllerLayout(BoxLayout):
         # Replace "Selecting location..." label with CollapseEntry instance for the new location
         self.addLocationEntry(new_location)
 
+    def set_locations(self, locations: dict[tuple[int, int], Location]):
+        self.locations_list.clearList()
+        for index in locations.keys():
+            self.addLocationEntry(locations[index])
+
+    def addLocationEntry(self, location: Location):
+        new_location_entry = EditableListEntry(
+            f"{location.index}\n{os.path.basename(location.map.map_file)}",
+            location,
+            self.screen.edit_location_cb,
+            self.screen.delete_location_cb,
+        )
+
+        self.locations_list.addEntry(new_location_entry)
+
+    def add_music_cb(self, instance: Button) -> Label:
+        # File selection dialog
+        fileSelectDialog = FileDialog(
+            select_text="Select",
+            popup_title="Select Music File",
+            on_select=self.onNewMusicSelection,
+            path=os.path.expanduser("~"),
+        )
+        fileSelectDialog.openDialog(None)
+
+        return Label(text="Selecting music...")
+
+    def add_combat_music_cb(self, instance: Button) -> Label:
+        # File selection dialog
+        fileSelectDialog = FileDialog(
+            select_text="Select",
+            popup_title="Select New Combat Music",
+            on_select=self.onNewCombatMusicSelection,
+            path=os.path.expanduser("~"),
+        )
+        fileSelectDialog.openDialog(None)
+
+        return Label(text="Selecting music...")
+
     def onNewCombatMusicSelection(self, instance: Button):
         dialog: FileDialog = instance.parent.parent
         musicFile = dialog.textInput.text
@@ -435,29 +574,18 @@ class ControllerLayout(BoxLayout):
 
         self.screen.campaign_view.add_music(musicFile)
 
-    def add_music_cb(self, instance):
-        # File selection dialog
-        fileSelectDialog = FileDialog(
-            select_text="Select",
-            popup_title="Select Music File",
-            on_select=self.onNewMusicSelection,
-            path=os.path.expanduser("~"),
+    def addMusicEntry(self, musicFile: str, musicList: CollapseItem):
+        delete = self.delete_combat_music_cb
+        if musicList == self.music_list:
+            delete = self.delete_music_cb
+
+        new_music_entry = EditableListEntry(
+            musicFile,
+            self.screen.campaign_view.campaign.current_location,
+            None,
+            delete,
         )
-        fileSelectDialog.openDialog(None)
-
-        return Label(text="Selecting music...")
-
-    def add_combat_music_cb(self, instance):
-        # File selection dialog
-        fileSelectDialog = FileDialog(
-            select_text="Select",
-            popup_title="Select New Combat Music",
-            on_select=self.onNewCombatMusicSelection,
-            path=os.path.expanduser("~"),
-        )
-        fileSelectDialog.openDialog(None)
-
-        return Label(text="Selecting music...")
+        musicList.addEntry(new_music_entry)
 
     def delete_music_cb(self, instance: Button) -> None:
         parent: EditableListEntry = instance.parent
@@ -477,112 +605,13 @@ class ControllerLayout(BoxLayout):
 
         self.combat_music_list.removeEntry(parent)
 
-    def on_size(self, instance, value):
-        # Re-draw black background
-        self.bg_rect.pos = self.pos
-        self.bg_rect.size = self.size
+    def add_player_cb(self, instance: Button) -> Label:
+        # Create dialog for creating new player w/ callback to on_new_player()
 
-    def allOn(self, instance):
-        for i in range(len(self.screen.campaign_view.map.grid.matrix)):
-            for j in range(len(self.screen.campaign_view.map.grid.matrix[i])):
-                if self.screen.campaign_view.map.grid.matrix[i][j] == 0:
-                    self.screen.campaign_view.map.grid.flip_tile(i, j)
-        self.screen.campaign_view.map.draw()
+        # self.new_player_dialog.clear()
+        self.new_player_dialog.openDialog(None)
 
-    def allOff(self, instance):
-        for i in range(len(self.screen.campaign_view.map.grid.matrix)):
-            for j in range(len(self.screen.campaign_view.map.grid.matrix[i])):
-                if self.screen.campaign_view.map.grid.matrix[i][j] == 1:
-                    self.screen.campaign_view.map.grid.flip_tile(i, j)
-        self.screen.campaign_view.map.draw()
+        return Label(text="New Challenger?!")
 
-    def invertTiles(self, instance):
-        for i in range(len(self.screen.campaign_view.map.grid.matrix)):
-            for j in range(len(self.screen.campaign_view.map.grid.matrix[i])):
-                self.screen.campaign_view.map.grid.flip_tile(i, j)
-        self.screen.campaign_view.map.draw()
-
-    def update_from_map(self, map: Map):
-        self.density_controller.input.text = str(map.grid.pixel_density)
-        self.density_controller.value = map.grid.pixel_density
-        self.xOffsetController.input.text = str(map.grid.x_offset)
-        self.xOffsetController.value = map.grid.x_offset
-        self.yOffsetController.input.text = str(map.grid.y_offset)
-        self.yOffsetController.value = map.grid.y_offset
-        self.xMarginController.input.text = str(map.grid.x_margin)
-        self.xMarginController.value = map.grid.x_margin
-        self.yMarginController.input.text = str(map.grid.y_margin)
-        self.yMarginController.value = map.grid.y_margin
-
-    def hex_switch_cb(self, instance: Switch, state: bool):
-        if not self.screen.campaign_view.map:
-            return
-
-        if state:
-            self.screen.campaign_view.map.toHex()
-        else:
-            self.screen.campaign_view.map.toSquare()
-
-        self.screen.campaign_view.map.draw()
-
-    def hidden_cb(self, instance: Switch, state: bool):
-        if self.screen.campaign_view.map:
-            self.screen.campaign_view.map.hidden_tiles = state
-        else:
-            return
-
-        if state:
-            # Add show tile buttons
-            index = self.children.index(self.hidden_switch_layout)
-            self.add_widget(self.hide_buttons_layout, index)
-        else:
-            # Remove / hide tile buttons
-            self.remove_widget(self.hide_buttons_layout)
-
-        self.screen.campaign_view.map.draw()
-
-    def add_rocker_controller(self, name, on_plus, on_minus):
-        rocker_box = BoxLayout(orientation="horizontal", size_hint=(1, 0.08))
-        rocker_box.add_widget(Label(text=name))
-        plus_button = Button(text="+", size_hint=(0.3, 1))
-        plus_button.bind(on_release=on_plus)
-        rocker_box.add_widget(plus_button)
-        minus_button = Button(text="-", size_hint=(0.3, 1))
-        minus_button.bind(on_release=on_minus)
-        rocker_box.add_widget(minus_button)
-
-        self.add_widget(rocker_box)
-
-    def setXOffset(self, value: float):
-        if self.screen.campaign_view.map is None:
-            print("What?")
-            return
-        self.screen.campaign_view.map.grid.x_offset = value
-        self.screen.campaign_view.map.draw()
-
-    def setYOffset(self, value: float):
-        if self.screen.campaign_view.map is None:
-            return
-        self.screen.campaign_view.map.grid.y_offset = value
-        self.screen.campaign_view.map.draw()
-
-    def setXMargin(self, value: float):
-        if self.screen.campaign_view.map is None:
-            return
-        self.screen.campaign_view.map.grid.x_margin = value
-        self.screen.campaign_view.map.update()
-        self.screen.campaign_view.map.draw()
-
-    def setYMargin(self, value: float):
-        if self.screen.campaign_view.map is None:
-            return
-        self.screen.campaign_view.map.grid.y_margin = value
-        self.screen.campaign_view.map.update()
-        self.screen.campaign_view.map.draw()
-
-    def setDensity(self, value: float):
-        if self.screen.campaign_view.map is None:
-            return
-        self.screen.campaign_view.map.grid.pixel_density = value
-        self.screen.campaign_view.map.update()
-        self.screen.campaign_view.map.draw()
+    def on_new_player(self, player: Player):
+        self.new_player_dialog.closeDialog(None)

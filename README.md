@@ -11,11 +11,15 @@ This is a work in progress.
 
 ## Installation
 ### From Source
+#### Ubuntu
 ```
 $ sudo apt install python3 pip3
 $ pip install poetry
 $ ./build.sh
 ```
+
+#### Windows
+I'm sorry to hear that. My condolences.
 
 ### From Package
 ```

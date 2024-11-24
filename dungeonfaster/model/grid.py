@@ -284,7 +284,9 @@ class HexGrid(Grid):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        self.highlight_image_path = os.path.join(RESOURCES_DIR, "map", "highlight.png")
+        self.highlight_image_path = os.path.join(
+            RESOURCES_DIR, "icons", "highlight.png"
+        )
         self.hidden_image_path = os.path.join(RESOURCES_DIR, "map", "hexes.png")
 
     def adjacent(self, x: int, y: int) -> list[tuple[int, int]]:
