@@ -11,6 +11,9 @@ RESOURCES_DIR = os.path.join(os.environ["DUNGEONFASTER_PATH"], "resources")
 
 
 class Grid:
+    x: int
+    y: int
+
     def __init__(self, window: Window = None):
         self.pixel_density: float = 60.0
         self.tile_size: tuple[float, float] = (self.pixel_density, self.pixel_density)
@@ -24,23 +27,17 @@ class Grid:
         self.x_offset = 0
         self.y_offset = 0
 
-        self.matrix = None
+        self.matrix: list[tuple[int, int]] = []
         self.highlight_image_path = None
         self.hidden_image_path = None
 
         # Matrix of None or Rectangle for tiles to be drawn
-        self.image_matrix: list[list[Rectangle]] = []
+        self.image_matrix: dict[tuple[int,int],Rectangle] = {}
 
     def save(self) -> dict:
-        save_data = {}
-        save_data["width"] = self.x
-        save_data["height"] = self.y
-        save_data["x_offset"] = self.x_offset
-        save_data["y_offset"] = self.y_offset
-        save_data["x_margin"] = self.x_margin
-        save_data["y_margin"] = self.y_margin
-        save_data["pixel_density"] = self.pixel_density
-        save_data["matrix"] = self.matrix
+        save_data = {"width": self.x, "height": self.y, "x_offset": self.x_offset, "y_offset": self.y_offset,
+                     "x_margin": self.x_margin, "y_margin": self.y_margin, "pixel_density": self.pixel_density,
+                     "matrix": self.matrix}
 
         return save_data
 
@@ -52,24 +49,20 @@ class Grid:
         self.x_margin = json_data["x_margin"]
         self.y_margin = json_data["y_margin"]
         self.pixel_density = json_data["pixel_density"]
-        self.matrix = json_data["matrix"]
+        # self.matrix = json_data["matrix"]
 
         self.scale_tiles()
 
         # Ensure valid dimensions
-        if self.x != len(self.matrix) or self.y != len(self.matrix[0]):
-            self.matrix = [[0 for y in range(self.y)] for x in range(self.x)]
-        if self.x != len(self.image_matrix) or self.y != len(self.image_matrix[0]):
-            self.image_matrix = [[None for y in range(self.y)] for x in range(self.x)]
+        # if self.x != len(self.matrix) or self.y != len(self.matrix[0]):
+        #     self.matrix = [[0 for y in range(self.y)] for x in range(self.x)]
+        # if self.x != len(self.image_matrix) or self.y != len(self.image_matrix[0]):
+        #     self.image_matrix = [[None for y in range(self.y)] for x in range(self.x)]
 
-        for x in range(self.x):
-            for y in range(self.y):
-                if self.matrix[x][y] == 0:
-                    self.image_matrix[x][y] = None
-                else:
-                    self.image_matrix[x][y] = Rectangle(
+        for coordinate in self.matrix:
+            self.image_matrix[coordinate] = Rectangle(
                         source=self.hidden_image_path,
-                        pos=self.tile_pos_from_index(x, y),
+                        pos=self.tile_pos_from_index(*coordinate),
                         size=self.tile_size,
                     )
 
@@ -91,7 +84,7 @@ class Grid:
         rect.size = self.tile_size
 
     def updateTile(self, x: int, y: int):
-        tile = self.image_matrix[x][y]
+        tile = self.image_matrix.get((x, y), None)
         if tile:
             self.updateRect(tile, x, y)
 
@@ -106,10 +99,8 @@ class Grid:
         self.tileAtIndex(self.highlight_image_path, i, j)
 
     def drawHiddenTiles(self):
-        for i in range(self.x):
-            for j in range(self.y):
-                if self.matrix[i][j] == 1:
-                    self.tileAtIndex(self.hidden_image_path, i, j)
+        for coordinate in self.matrix:
+            self.tileAtIndex(self.hidden_image_path, *coordinate)
 
     def flip_tile(self, x: int, y: int) -> Rectangle:
         """Invert the value of the grid tile at position x, y
@@ -122,25 +113,25 @@ class Grid:
             Rectangle: Flipped tile image to be added or removed from caller's tracking list
         """
 
-        matrix_grid = self.matrix[x][y]
+        tile = self.image_matrix.get((x,y), None)
 
-        tile = self.image_matrix[x][y]
-        if matrix_grid == 0:
-            self.matrix[x][y] = 1
-            tile = Rectangle(
-                source=self.hidden_image_path,
-                pos=self.tile_pos_from_index(x, y),
-                size=self.tile_size,
-            )
-            self.image_matrix[x][y] = tile
-        else:
+        if (x, y) in self.matrix:
             try:
                 self.window.surface.canvas.remove(tile)
             except:
                 # Ignore attempts to remove tiles not currently displayed
                 pass
-            self.matrix[x][y] = 0
-            self.image_matrix[x][y] = None
+            self.matrix.remove((x,y))
+            self.image_matrix.pop((x,y), None)
+
+        else:
+            self.matrix.append((x,y))
+            tile = Rectangle(
+                source=self.hidden_image_path,
+                pos=self.tile_pos_from_index(x, y),
+                size=self.tile_size,
+            )
+            self.image_matrix[(x,y)] = tile
 
         return tile
 
@@ -235,9 +226,6 @@ class SquareGrid(Grid):
     def update(self, width, height):
         self.x = int(width / self.pixel_density - 2 * self.x_margin)
         self.y = int(height / self.pixel_density - 2 * self.y_margin)
-        self.matrix = [[0 for y in range(self.y)] for x in range(self.x)]
-        # if len(self.image_matrix) == 0:
-        self.image_matrix = [[None for y in range(self.y)] for x in range(self.x)]
 
     def scale_tiles(self):
         self.tile_size = (
@@ -318,9 +306,6 @@ class HexGrid(Grid):
         self.y = int(
             (height / (math.sqrt(3) * self.pixel_density / 2)) - 2 * self.y_margin
         )
-        self.matrix = [[0 for y in range(self.y)] for x in range(self.x)]
-        # if len(self.image_matrix) == 0:
-        self.image_matrix = [[None for y in range(self.y)] for x in range(self.x)]
 
     def tile_pos_from_index(self, i: int, j: int) -> tuple[float, float]:
         (sx, sy) = self.window.surface.pos

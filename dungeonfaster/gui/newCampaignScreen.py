@@ -128,11 +128,11 @@ class NewCampaignScreen(Screen):
         self.campaign_view.remove_widget(self.getMapButton)
         self.overworldMapDialog.closeDialog(None)
 
-        base_location = Location("overworld", 0, 0)
+        base_location = Location("overworld", {})
         base_location.set_map(overworldMapFile)
         self.campaign_view.map = base_location.map
 
-        self.campaign_view.add_location(base_location, 0, 0)
+        self.campaign_view.add_location(base_location, "overworld")
 
         self.campaign_view.map.getZoomForSurface(self.campaign_view.map_layout)
         self.campaign_view.draw()
@@ -184,12 +184,8 @@ class NewCampaignScreen(Screen):
             self.campaign_view.map.draw()
 
         # Add any loaded locations to self.controls_layout.locations_list
-        for (
-            location_index
-        ) in self.campaign_view.campaign.current_location.locations.keys():
-            self.controls_layout.addLocationEntry(
-                self.campaign_view.campaign.current_location.locations[location_index]
-            )
+        for location in self.campaign_view.campaign.locations.values():
+            self.controls_layout.addLocationEntry(location)
 
         # Add musics for current location
         for music in self.campaign_view.campaign.current_location.music:
@@ -214,10 +210,8 @@ class NewCampaignScreen(Screen):
             self.addBackButton()
 
         # Update switches
-        self.controls_layout.hidden_switch.active = self.campaign_view.map.hidden_tiles
+        self.controls_layout.map_editor_layout.hidden_switch.active = self.campaign_view.map.hidden_tiles
 
-        # Replace sub-locations with entries from new location
-        self.controls_layout.set_locations(location.locations)
         # TODO: Set music and item collapse view items
 
     def edit_location_cb(self, instance: Button):
@@ -230,9 +224,7 @@ class NewCampaignScreen(Screen):
         location: Location = parent.thing
 
         # Remove location from which ever location contains it
-        if location.parent:
-            location.parent.map.points_of_interest.remove(location.index)
-            del location.parent.locations[location.index]
+        del self.campaign_view.locations[location.name]
 
         self.controls_layout.locations_list.removeEntry(parent)
 
@@ -311,22 +303,20 @@ class MapEditorLayout(BoxLayout):
         self.screen.campaign_view.campaign.current_location.name = value
 
     def allOn(self, instance):
-        for i in range(len(self.screen.campaign_view.map.grid.matrix)):
-            for j in range(len(self.screen.campaign_view.map.grid.matrix[i])):
-                if self.screen.campaign_view.map.grid.matrix[i][j] == 0:
+        for i in range(self.screen.campaign_view.map.grid.x):
+            for j in range(self.screen.campaign_view.map.grid.y):
+                if (i, j) not in self.screen.campaign_view.map.grid.matrix:
                     self.screen.campaign_view.map.grid.flip_tile(i, j)
         self.screen.campaign_view.map.draw()
 
     def allOff(self, instance):
-        for i in range(len(self.screen.campaign_view.map.grid.matrix)):
-            for j in range(len(self.screen.campaign_view.map.grid.matrix[i])):
-                if self.screen.campaign_view.map.grid.matrix[i][j] == 1:
-                    self.screen.campaign_view.map.grid.flip_tile(i, j)
+        for tile in self.screen.campaign_view.map.grid.matrix:
+            self.screen.campaign_view.map.grid.flip_tile(*tile)
         self.screen.campaign_view.map.draw()
 
     def invertTiles(self, instance):
-        for i in range(len(self.screen.campaign_view.map.grid.matrix)):
-            for j in range(len(self.screen.campaign_view.map.grid.matrix[i])):
+        for i in range(self.screen.campaign_view.map.grid.x):
+            for j in range(self.screen.campaign_view.map.grid.y):
                 self.screen.campaign_view.map.grid.flip_tile(i, j)
         self.screen.campaign_view.map.draw()
 
@@ -419,7 +409,7 @@ class ControllerLayout(BoxLayout):
 
         self.screen = screen
 
-        self.new_player_dialog = NewPlayerDialog()
+        self.new_player_dialog = NewPlayerDialog(self.on_new_player_select)
 
         # TODO: Only activate once map is selected / loaded
 
@@ -503,13 +493,17 @@ class ControllerLayout(BoxLayout):
     def onNewLocationMapSelection(self, instance: Button):
         locationMapFile = self.fileSelectDialog.textInput.text
         self.fileSelectDialog.closeDialog(None)
+        map_name = os.path.basename(locationMapFile).split('/')[-1]
+
+        current_location: Location = self.screen.campaign_view.campaign.current_location
 
         # Create new location instance
-        new_location = Location("todo", self.new_x, self.new_y)
+        new_location = Location(map_name, {})
         new_location.set_map(locationMapFile)
-        new_location.parent = self.screen.campaign_view.campaign.current_location
+        new_location.parent = current_location.name
+        current_location.transitions[(self.new_x, self.new_y)] = map_name
 
-        self.screen.campaign_view.add_location(new_location, self.new_x, self.new_y)
+        self.screen.campaign_view.add_location(new_location, map_name)
 
         self.screen.toLocation(new_location)
         self.screen.campaign_view.arrive(new_location)
@@ -517,14 +511,22 @@ class ControllerLayout(BoxLayout):
         # Replace "Selecting location..." label with CollapseEntry instance for the new location
         self.addLocationEntry(new_location)
 
-    def set_locations(self, locations: dict[tuple[int, int], Location]):
-        self.locations_list.clearList()
-        for index in locations.keys():
-            self.addLocationEntry(locations[index])
+    def on_new_player_select(self, instance: Button):
+        # Add player to list of players in collapsable
+        new_player = self.new_player_dialog.get_player()
+
+        self.screen.campaign_view.campaign.addPlayer(new_player)
+
+        new_player_entry = EditableListEntry(new_player.name, new_player, None, None)
+        self.players_list.addEntry(new_player_entry)
+        
+        dialog: NewPlayerDialog = instance.parent.parent
+        dialog.closeDialog(None)
+
 
     def addLocationEntry(self, location: Location):
         new_location_entry = EditableListEntry(
-            f"{location.index}\n{os.path.basename(location.map.map_file)}",
+            f"{location.name}\n{os.path.basename(location.map.map_file)}",
             location,
             self.screen.edit_location_cb,
             self.screen.delete_location_cb,

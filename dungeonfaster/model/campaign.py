@@ -13,16 +13,12 @@ class Campaign:
         self.name: str | os.PathLike = ""
         self.save_path: str | os.PathLike = ""
         self.position: tuple[int, int] = (0, 0)
-        self.locations: dict[tuple[int, int], Location] = {}
+        self.locations: dict[str, Location] = {}
         self.current_location: Location = None
         self.party: list[Player] = []
 
-    def save(self, out_path: str | os.PathLike) -> None | Exception:
-        data_dict = {}
-        data_dict["name"] = self.name
-        data_dict["position"] = self.position
-
-        data_dict["current_location"] = self.current_location.name
+    def save(self, out_path: str | os.PathLike) -> None:
+        data_dict = {"name": self.name, "position": self.position, "current_location": self.current_location.name}
 
         party: list[dict] = []
         for player in self.party:
@@ -30,14 +26,11 @@ class Campaign:
         data_dict["party"] = party
 
         locations_dict = {}
-        for location in self.locations.keys():
-            locations_dict[str(location)] = self.locations[location].save()
+        for name, location in self.locations.items():
+            locations_dict[name] = location.save()
         data_dict["locations"] = locations_dict
 
-        try:
-            json_data = json.dumps(data_dict, indent=4, separators=(",", ": "))
-        except Exception as e:
-            return e
+        json_data = json.dumps(data_dict, indent=4, separators=(",", ": "))
 
         with open(out_path, "w") as out_file:
             out_file.write(json_data)
@@ -57,26 +50,18 @@ class Campaign:
         self.name = load_data["name"]
         self.position = tuple(load_data["position"])
 
-        # Load base (overworld) location
-        base_data = load_data["locations"][str((0, 0))]
-        base_location = Location(base_data["name"], 0, 0)
-        base_location.load(base_data, surface)
-        self.locations[(0, 0)] = base_location
+        # Load locations
+        for name, location_data in load_data["locations"].items():
+            self.locations[name] = Location(name, location_data)
+            self.locations[name].load(surface)
 
         self.current_location = self.getLocation(load_data["current_location"])
 
     def getLocation(self, name: str, locations=None) -> Location | None:
-        if locations is None:
-            locations = self.locations
-
-        for location in locations.values():
-            if location.name == name:
-                return location
-            else:
-                ret = self.getLocation(name, location.locations)
-                if ret:
-                    return ret
-        return None
+        return self.locations.get(name, None)
 
     def goToLocation(self, x: int, y: int) -> None:
         pass
+
+    def addPlayer(self, player: Player):
+        self.party.append(player)

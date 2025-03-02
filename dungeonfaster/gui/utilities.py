@@ -216,7 +216,7 @@ class SimpleDialog(BoxLayout):
     ):
         super().__init__(orientation="vertical", **kwargs)
 
-        self._popup = None
+        self._popup: Popup = None
         self.popup_title = popup_title
 
         self.content_layout = BoxLayout(orientation="vertical")
@@ -246,18 +246,23 @@ class SimpleDialog(BoxLayout):
 
 
 class NewPlayerDialog(SimpleDialog):
-    def __init__(self, **kwargs):
+    player_name: str
+    player_class: str
+    player_race: str
+    player_level: int = 1
+    def __init__(self, on_select, **kwargs):
         super().__init__(
             popup_title="New Player",
             select_text="Add Player",
             **kwargs,
         )
 
-        self.player = Player()
+        self.selectButton.bind(on_release=on_select)
 
         self.name_input = LabeledTextInput("Name: ", self.on_name)
+        # TODO: Dropdown
         self.class_input = LabeledTextInput("Class: ", self.on_class)
-        self.race_input = LabeledTextInput("Class: ", self.on_race)
+        self.race_input = LabeledTextInput("Race: ", self.on_race)
         self.level_input = LabeledIntInput("Level", self.on_level, 1, 1)
 
         self.content_layout.add_widget(self.name_input)
@@ -266,16 +271,19 @@ class NewPlayerDialog(SimpleDialog):
         self.content_layout.add_widget(self.level_input)
 
     def on_name(self, instance, value):
-        self.player.name = value
+        self.player_name = value
 
     def on_class(self, instance, value):
-        self.player.cls = value
+        self.player_class = value
 
     def on_race(self, instance, value):
-        self.player.race = value
+        self.player_race = value
 
     def on_level(self, value: int):
-        self.player.level = value
+        self.player_level = value
+
+    def get_player(self) -> Player:
+        return Player(name=self.player_name, cls=self.player_class, level=self.player_level, race=self.player_race)
 
 
 class FileDialog(SimpleDialog):

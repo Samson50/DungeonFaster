@@ -111,7 +111,7 @@ class LoadCampaignScreen(Screen):
 
         self.menuManager.add_widget(self)
 
-    def load(self, campaign_path: os.PathLike) -> None:
+    def load(self, campaign_path: os.PathLike | str) -> None:
         self.manager.runCampaignScreen.load(campaign_path)
         self.manager.last_screen = self.name
         self.manager.current = self.manager.runCampaignScreen.name

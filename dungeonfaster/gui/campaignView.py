@@ -149,6 +149,9 @@ class CampaignView(FloatLayout):
     def __init__(self, screen: Screen, **kwargs):
         super().__init__(**kwargs)
         Window.bind(mouse_pos=self.on_mouse_pos)
+        self.mouse_x = 0
+        self.mouse_y = 0
+        self.moved = False
 
         self.screen = screen
         self.party_icon = Rectangle(
@@ -274,7 +277,7 @@ class CampaignView(FloatLayout):
         # Get first parent with music
         tmp: Location = self.campaign.current_location
         while tmp.parent is not None and len(tmp.music) == 0:
-            tmp = tmp.parent
+            tmp = self.campaign.getLocation(tmp.parent)
 
         # Load musics as list of Sound
         if len(tmp.music) > 0:
@@ -376,8 +379,9 @@ class CampaignView(FloatLayout):
 
         self.draw()
 
-    def changeMap(self, map: Map):
-        self.map = map
+    def changeMap(self, name: str):
+        new_location: Location = self.campaign.locations[name]
+        self.map = new_location.map
 
         self.map_layout.canvas.clear()
         self.map.drawn_tiles = []
@@ -387,14 +391,9 @@ class CampaignView(FloatLayout):
 
         self.draw()
 
-    def add_location(self, location: Location, x: int, y: int) -> None:
+    def add_location(self, location: Location, name: str) -> None:
         # Add location to current location or campaign
-        if self.campaign.current_location is None:
-            self.campaign.locations[(x, y)] = location
-            self.campaign.current_location = location
-        else:
-            self.campaign.current_location.locations[(x, y)] = location
-            self.map.points_of_interest.append((x, y))
+        self.campaign.locations[name] = location
 
     def add_music(self, music_file: str) -> None:
         self.campaign.current_location.music.append(music_file)
@@ -411,33 +410,38 @@ class CampaignView(FloatLayout):
     def leave(self) -> Location:
         location = self.campaign.current_location
         self.selected = None
+        parent = self.campaign.getLocation(location.parent)
 
         # Should not get here, but just in case
         # TODO: Leave campaign?
-        if location.parent is None:
+        if parent is None:
             # Back to overworld
             return None
         else:
-            self.changeMap(location.parent.map)
+            self.changeMap(location.parent)
 
         # Update music if applicable
-        if len(location.parent.music) > 0:
-            self.update_playlist(location.parent)
+        if len(parent.music) > 0:
+            self.update_playlist(parent)
 
-        self.campaign.current_location = location.parent
+        self.campaign.current_location = parent
         try:
             self.campaign.position = self.position_stack.pop()
         except:
-            self.campaign.position = location.parent.start_position
+            self.campaign.position = parent.position
 
-        return location.parent
+        return parent
 
-    def arrive(self, location: Location) -> None:
+    def arrive(self, location: Location, from_pos: tuple[int, int]) -> None:
         self.selected = None
         self.campaign.current_location = location
         self.position_stack.append(self.campaign.position)
-        self.campaign.position = location.start_position
-        self.changeMap(location.map)
+        print(f"from_pos: {from_pos}")
+        print(type(from_pos))
+        print(f"entrances: {location.entrances}")
+        [print(type(key)) for key in location.entrances.keys()]
+        self.campaign.position = location.entrances.get(from_pos, (0,0))
+        self.changeMap(location.name)
 
         # Update music if applicable
         if len(location.music) > 0:
@@ -454,8 +458,45 @@ class CampaignView(FloatLayout):
             if child.collide_point(px, py):
                 return True
         return False
+    
+    def on_touch_move(self, event: MotionEvent):
+        if event.grab_current is not self:
+            return super().on_touch_move(event)
+        new_x, new_y = event.pos
+
+        if int(self.mouse_x) != int(new_x) and int(self.mouse_y) != int(new_y):
+            # print(new_x, new_y, self.mouse_x, self.mouse_y)
+            self.moved = True
+
+        self.map.window.x += self.mouse_x - new_x
+        self.map.window.y += self.mouse_y - new_y
+        self.mouse_x, self.mouse_y = (new_x, new_y)
+
+        # TODO: Update slider based on changed 
+        width = self.map.width / self.map.window.zoom - self.map.window.surface.width
+        # self.map.window.x = width * self.x_slider.value
+        if 0 != width:
+            self.x_slider.value = self.map.window.x / width
+
+        height = self.map.height / self.map.window.zoom - self.map.window.surface.height
+        # self.map.window.y = height * self.y_slider.value
+        if 0 != height:
+            self.y_slider.value = self.map.window.y / height
+
+        self.draw()
+        
+
 
     def on_click(self, layout: FloatLayout, event: MotionEvent):
+        if event.is_touch:
+            self.mouse_x, self.mouse_y = event.pos
+            event.grab(self)
+            self.moved = False
+
+    def on_click_up(self, layout: FloatLayout, event: MotionEvent):
+        if self.moved:
+            return
+
         if event.is_mouse_scrolling:
             if event.button == "scrolldown":
                 self.zoomIn()
@@ -483,29 +524,27 @@ class CampaignView(FloatLayout):
                 map_x < mouse_x < map_x + map_width
                 and map_y < mouse_y < map_y + map_height
             ):
-                try:
-                    x, y = self.map.grid.pixel_to_index(
-                        mouse_x - map_x, mouse_y - map_y
-                    )
-                    print(f"{(x, y)}")
-                    if self.running:
-                        self.map_clicked(x, y)
-                    else:
-                        self.map.grid.flip_tile(x, y)
-                    self.draw()
-                # TODO: Deliberate error message and catching index error
-                except Exception as e:
-                    print(f"Error in interaction: {e}")
+                x, y = self.map.grid.pixel_to_index(
+                    mouse_x - map_x, mouse_y - map_y
+                )
+                # print(f"{(x, y)}")
+                if self.running:
+                    self.map_clicked(x, y)
+                else:
+                    self.map.grid.flip_tile(x, y)
+                self.draw()
 
     def interact(self, x: int, y: int) -> None:
         # TODO: Right click to re-hide tile?
+        print(f"Selected: ({x}, {y})")
         if self.selected:
             if (x, y) == self.selected:
                 # Attempt to go to selected location
                 if (x, y) == self.campaign.position:
-                    # TODO: if self.selected in locations...
-                    if (x, y) in self.campaign.current_location.locations.keys():
-                        self.arrive(self.campaign.current_location.locations[(x, y)])
+                    # If self.selected in transitions...
+                    # print(f"({x}, {y}) in {self.campaign.current_location.transitions}")
+                    if (x,y) in self.campaign.current_location.transitions:
+                        self.arrive(self.campaign.locations[self.campaign.current_location.transitions[(x,y)]], (x, y))
                         self.clear_adjacent()
                 self.selected = None
 
@@ -531,11 +570,11 @@ class CampaignView(FloatLayout):
     def zoomIn(self):
         if self.map is None:
             return
-        self.map.window.zoom -= 1
+        self.map.window.zoom /= 1.5
         self._by_scroll()
 
     def zoomOut(self):
         if self.map is None:
             return
-        self.map.window.zoom += 1
+        self.map.window.zoom *= 1.5
         self._by_scroll()

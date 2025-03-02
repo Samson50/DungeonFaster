@@ -16,6 +16,7 @@ class RunCampaignScreen(Screen):
         self.campaign_view: CampaignView = CampaignView(self, size_hint=(1, 1))
         self.campaign_view.running = True
         self.campaign_view.bind(on_touch_down=self.campaign_view.on_click)
+        self.campaign_view.bind(on_touch_up=self.campaign_view.on_click_up)
         self.add_widget(self.campaign_view)
 
         self.menuManager.add_widget(self)

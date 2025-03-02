@@ -51,7 +51,6 @@ class MainMenuScreen(Screen):
 
         self.menuManager = manager
 
-        layout = FloatLayout()
         layout = FloatLayout(size=(400, 400))
 
         layout.add_widget(

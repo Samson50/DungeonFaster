@@ -15,7 +15,7 @@ GRID_TYPE_HEX = "hex"
 
 
 class Map:
-    def __init__(self, map_file: str = None):
+    def __init__(self, map_file: os.PathLike = None):
         # TODO: Down-sample very large high-resolution maps when screens are small and zoom is low
 
         self.map_file = map_file
@@ -59,7 +59,7 @@ class Map:
         else:
             self.window.zoom = self.height / surface.height
 
-    def load(self, load_json: str, surface: Widget):
+    def load(self, load_json: dict, surface: Widget):
         self.window.surface = surface
         self.map_file = load_json["map_file"]
         self.window.zoom = load_json["zoom"]
@@ -134,13 +134,13 @@ class Map:
 
     def drawTile(self, x: int, y: int) -> None:
         # Obscuration tile at index
-        tile: Rectangle = self.grid.image_matrix[x][y]
+        tile: Rectangle = self.grid.image_matrix.get((x,y), None)
 
-        if self.grid.matrix[x][y] == 1:
+        if (x, y) in self.grid.matrix:
 
             if tile is None:
                 tile = self.grid.getRect(x, y, self.grid.hidden_image_path)
-                self.grid.image_matrix[x][y] = tile
+                self.grid.image_matrix[(x,y)] = tile
 
             # Tile is within display window (mostly)
             if self.window.showing(tile):
@@ -159,7 +159,7 @@ class Map:
         # TODO: Seems to be an issue with PoI highlights on sub-locations
         for poi in self.points_of_interest:
             # If the PoI tile is revealed
-            if self.grid.matrix[poi[0]][poi[1]] == 0:
+            if poi not in self.grid.matrix:
                 if poi in self.drawn_poi.keys():
                     poi_rect = self.drawn_poi[poi]
                     self.grid.updateRect(poi_rect, poi[0], poi[1])
@@ -210,16 +210,10 @@ class Map:
             self.window.surface.canvas.add(tile)
 
     def revealed(self, x: int, y: int) -> bool:
-        try:
-            return self.grid.matrix[x][y] == 0
-        except:
-            return False
+        return (x, y) not in self.grid.matrix
 
     def hidden(self, x: int, y: int) -> bool:
-        try:
-            return self.grid.matrix[x][y] == 1
-        except:
-            return False
+        return (x, y) in self.grid.matrix
 
     def reveal(self, x: int, y: int) -> None:
         if self.hidden(x, y):
