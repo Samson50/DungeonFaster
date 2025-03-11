@@ -74,6 +74,9 @@ class Map:
 
         self.grid.load(load_json["grid"])
 
+        self.window.x = load_json.get("window_x", 0)
+        self.window.y = load_json.get("window_y", 0)
+
         # self.grid.scale_tiles()
 
     def save(self):
@@ -83,6 +86,9 @@ class Map:
         save_data["hidden"] = self.hidden_tiles
         save_data["grid_type"] = self.grid_type
         save_data["grid"] = self.grid.save()
+
+        save_data["window_x"] = self.window.x
+        save_data["window_y"] = self.window.y
 
         return save_data
 

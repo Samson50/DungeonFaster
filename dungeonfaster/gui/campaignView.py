@@ -152,6 +152,7 @@ class CampaignView(FloatLayout):
         self.mouse_x = 0
         self.mouse_y = 0
         self.moved = False
+        self.last_zoom = (0, 0)
 
         self.screen = screen
         self.party_icon = Rectangle(
@@ -188,25 +189,6 @@ class CampaignView(FloatLayout):
         )
         self.leave_button.bind(on_release=self.on_leave_cb)
 
-        # Sliders to control map view window position
-        self.x_slider: Slider = Slider(
-            min=0,
-            max=1,
-            value=0.0,
-            orientation="horizontal",
-            step=0.01,
-            size_hint=(0.9, 0.05),
-            pos_hint={"x": 0.05, "y": 0.0},
-        )
-        self.y_slider: Slider = Slider(
-            min=0,
-            max=1,
-            value=0.0,
-            orientation="vertical",
-            step=0.01,
-            size_hint=(0.05, 0.9),
-            pos_hint={"x": 0.0, "y": 0.05},
-        )
 
     def on_mouse_pos(self, window: WindowBase, pos: tuple[float, float]) -> None:
         if not self.map:
@@ -271,8 +253,8 @@ class CampaignView(FloatLayout):
     def load(self, load_path):
         self.campaign.load(load_path, self.map_layout)
         self.map = self.campaign.current_location.map
-        self.set_sliders()
-        self._by_scroll()
+        # self.set_sliders()
+        # self._by_scroll()
 
         # Get first parent with music
         tmp: Location = self.campaign.current_location
@@ -354,31 +336,6 @@ class CampaignView(FloatLayout):
             if self.adjacent:
                 self.clear_adjacent()
 
-    def set_sliders(self):
-        self.add_widget(self.x_slider)
-        self.add_widget(self.y_slider)
-        self.x_slider.bind(value=self.x_scroll)
-        self.y_slider.bind(value=self.y_scroll)
-
-    def x_scroll(self, instance: Slider, value):
-        width = self.map.width / self.map.window.zoom - self.map.window.surface.width
-        self.map.window.x = width * value
-        self.draw()
-
-    def y_scroll(self, instance: Slider, value: float) -> None:
-        height = self.map.height / self.map.window.zoom - self.map.window.surface.height
-        self.map.window.y = height * value
-        self.draw()
-
-    def _by_scroll(self):
-        width = self.map.width / self.map.window.zoom - self.map.window.surface.width
-        self.map.window.x = width * self.x_slider.value
-
-        height = self.map.height / self.map.window.zoom - self.map.window.surface.height
-        self.map.window.y = height * self.y_slider.value
-
-        self.draw()
-
     def changeMap(self, name: str):
         new_location: Location = self.campaign.locations[name]
         self.map = new_location.map
@@ -387,7 +344,7 @@ class CampaignView(FloatLayout):
         self.map.drawn_tiles = []
         self.map.map_rect = None
         self.map.getZoomForSurface(self.map_layout)
-        self._by_scroll()
+        # self._by_scroll()
 
         self.draw()
 
@@ -412,7 +369,6 @@ class CampaignView(FloatLayout):
         self.selected = None
         parent = self.campaign.getLocation(location.parent)
 
-        # Should not get here, but just in case
         # TODO: Leave campaign?
         if parent is None:
             # Back to overworld
@@ -452,7 +408,7 @@ class CampaignView(FloatLayout):
             self.add_widget(self.leave_button)
 
     def on_button(self, px: float, py: float) -> bool:
-        children = [x for x in self.children]
+        children = self.children[:]
         children.remove(self.map_layout)
         for child in children:
             if child.collide_point(px, py):
@@ -460,6 +416,10 @@ class CampaignView(FloatLayout):
         return False
     
     def on_touch_move(self, event: MotionEvent):
+        (mouse_x, mouse_y) = event.pos
+        if self.on_button(mouse_x, mouse_y):
+            return
+        
         if event.grab_current is not self:
             return super().on_touch_move(event)
         new_x, new_y = event.pos
@@ -471,17 +431,6 @@ class CampaignView(FloatLayout):
         self.map.window.x += self.mouse_x - new_x
         self.map.window.y += self.mouse_y - new_y
         self.mouse_x, self.mouse_y = (new_x, new_y)
-
-        # TODO: Update slider based on changed 
-        width = self.map.width / self.map.window.zoom - self.map.window.surface.width
-        # self.map.window.x = width * self.x_slider.value
-        if 0 != width:
-            self.x_slider.value = self.map.window.x / width
-
-        height = self.map.height / self.map.window.zoom - self.map.window.surface.height
-        # self.map.window.y = height * self.y_slider.value
-        if 0 != height:
-            self.y_slider.value = self.map.window.y / height
 
         self.draw()
         
@@ -497,19 +446,15 @@ class CampaignView(FloatLayout):
         if self.moved:
             return
 
-        if event.is_mouse_scrolling:
+        if event.is_mouse_scrolling and self.last_zoom != event.pos:
+            self.last_zoom = event.pos
             if event.button == "scrolldown":
-                self.zoomIn()
+                self.zoomIn(event)
             elif event.button == "scrollup":
-                self.zoomOut()
+                self.zoomOut(event)
             return
 
         (mouse_x, mouse_y) = event.pos
-        # Ensure we're not using sliders already
-        if self.x_slider.collide_point(mouse_x, mouse_y) or self.y_slider.collide_point(
-            mouse_x, mouse_y
-        ):
-            return
 
         # One of the buttons is already responding to this event, ignore
         if self.on_button(mouse_x, mouse_y):
@@ -567,14 +512,27 @@ class CampaignView(FloatLayout):
         for adjacent in self.map.grid.adjacent(x, y):
             self.map.reveal(*adjacent)
 
-    def zoomIn(self):
-        if self.map is None:
-            return
-        self.map.window.zoom /= 1.5
-        self._by_scroll()
+    def _byZoom(self, old_zoom: float, event: MotionEvent):
+        mouse_x, mouse_y = event.pos
 
-    def zoomOut(self):
+        zoom_factor = old_zoom / self.map.window.zoom
+        self.map.window.x = (self.map.window.x + mouse_x) * zoom_factor - mouse_x 
+        self.map.window.y = (self.map.window.y + mouse_y) * zoom_factor - mouse_y 
+        self.draw()
+
+    def zoomIn(self, event: MotionEvent):
         if self.map is None:
             return
+        old_zoom = self.map.window.zoom
+        self.map.window.zoom /= 1.5
+
+        self._byZoom(old_zoom, event)
+
+    def zoomOut(self, event: MotionEvent):
+        if self.map is None:
+            return
+        old_zoom = self.map.window.zoom
         self.map.window.zoom *= 1.5
-        self._by_scroll()
+
+        self._byZoom(old_zoom, event)
+

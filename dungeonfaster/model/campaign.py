@@ -18,7 +18,7 @@ class Campaign:
         self.party: list[Player] = []
 
     def save(self, out_path: str | os.PathLike) -> None:
-        data_dict = {"name": self.name, "position": self.position, "current_location": self.current_location.name}
+        data_dict = {"name": self.name, "position": str(self.position), "current_location": self.current_location.name}
 
         party: list[dict] = []
         for player in self.party:
@@ -48,7 +48,7 @@ class Campaign:
                 self.party.append(new_player)
 
         self.name = load_data["name"]
-        self.position = tuple(load_data["position"])
+        self.position = eval(load_data["position"])
 
         # Load locations
         for name, location_data in load_data["locations"].items():

@@ -216,8 +216,9 @@ class NewCampaignScreen(Screen):
 
     def edit_location_cb(self, instance: Button):
         parent: EditableListEntry = instance.parent
-        self.toLocation(parent.thing)
-        self.campaign_view.arrive(parent.thing)
+        location: Location = parent.thing
+        self.toLocation(location)
+        self.campaign_view.arrive(location, (0, 0))
 
     def delete_location_cb(self, instance: Button):
         parent: EditableListEntry = instance.parent

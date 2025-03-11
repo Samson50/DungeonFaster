@@ -9,6 +9,8 @@ from dungeonfaster.model.map import Map
 class Location:
     def __init__(self, name: str, location_data: dict):
         self.parent: str | None = location_data.get("parent", None)
+        if not self.parent and name != "overworld":
+            self.parent = "overworld"
         self.name: str = name
         self.map: Map = Map()
         self.map_data: dict = location_data.get("map", {})
@@ -32,7 +34,10 @@ class Location:
 
     def save(self) -> dict:
         save_dict = {"name": self.name, "map": self.map.save(), "music": self.music, "combat_music": self.combat_music,
-                     "position": self.position, "transitions": self.transitions}
+                     "position": str(self.position), "transitions": self.transitions}
+        
+        save_dict["transitions"] = {str(pos): name for pos,name in self.transitions.items()}
+        save_dict["entrances"] = {str(from_pos): str(to_pos) for from_pos, to_pos in self.entrances.items()}
 
         return save_dict
 
