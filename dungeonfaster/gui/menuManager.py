@@ -15,6 +15,7 @@ class MenuManager(ScreenManager):
         self.newCampaignScreen: Screen = None
         self.loadCampaignScreen: Screen = None
         self.runCampaignScreen: Screen = None
+        self.playerScreen: Screen = None
 
         self.current = self.mainMenuScreen.name
 
@@ -40,6 +41,10 @@ class MenuManager(ScreenManager):
         self.last_screen = self.current
         self.current = self.mainMenuScreen.name
 
+    def toPlayerScreen(self, instance):
+        self.last_screen = self.current
+        self.current = self.playerScreen.name
+
     def toLastScreen(self, instance):
         self.current = self.last_screen
 
@@ -64,7 +69,7 @@ class MainMenuScreen(Screen):
         loadCampaignButton = Button(
             text="Load Campaign",
             pos_hint={"center_x": 0.5, "center_y": 0.5},
-            size_hint={0.2, 0.1},
+            size_hint=(0.2, 0.1),
         )
         layout.add_widget(loadCampaignButton)
         loadCampaignButton.bind(on_press=self.menuManager.toLoadCampaignScreen)
@@ -72,11 +77,19 @@ class MainMenuScreen(Screen):
         newCampaignButton = Button(
             text="New/Edit Campaign",
             pos_hint={"center_x": 0.5, "center_y": 0.3},
-            size_hint={0.2, 0.1},
+            size_hint=(0.2, 0.1),
         )
         layout.add_widget(newCampaignButton)
         newCampaignButton.bind(on_press=self.menuManager.toNewCampaignScreen)
 
+        playerButton = Button(
+            text="Player",
+            pos_hint={"center_x": 0.5, "center_y":0.1},
+            size_hint=(0.2, 0.1),
+        )
+        layout.add_widget(playerButton)
+        playerButton.bind(on_press=self.menuManager.toPlayerScreen)
+        
         self.add_widget(layout)
 
         self.menuManager.add_widget(self)

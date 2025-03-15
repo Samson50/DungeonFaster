@@ -9,6 +9,8 @@ from dungeonfaster.model.map import Map
 
 
 class Campaign:
+    path: str
+
     def __init__(self):
         self.name: str | os.PathLike = ""
         self.save_path: str | os.PathLike = ""
@@ -36,6 +38,7 @@ class Campaign:
             out_file.write(json_data)
 
     def load(self, load_path: str | os.PathLike, surface: Widget):
+        self.path = load_path
 
         with open(load_path, "r") as load_file:
             string_data = load_file.read()
