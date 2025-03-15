@@ -12,7 +12,7 @@ from kivy.uix.screenmanager import Screen
 from kivy.uix.slider import Slider
 
 from dungeonfaster.gui.utilities import FileDialog, IconButton
-
+from dungeonfaster.gui.DMTools import DMTools
 from dungeonfaster.model.location import Location
 from dungeonfaster.model.map import Map
 from dungeonfaster.model.campaign import Campaign
@@ -213,6 +213,11 @@ class CampaignView(FloatLayout):
         - Change/Stop music
         - Save campaign state
         """
+        self.dm_controls = DMTools(
+            self, size_hint=(0.3, 0.05), pos_hint={"x": 0.65, "top": 0.9}
+        )
+        self.add_widget(self.dm_controls)
+
         self.audio_controller = AudioControllerLayout(
             self, size_hint=(0.3, 0.05), pos_hint={"x": 0.65, "y": 0.05}
         )
