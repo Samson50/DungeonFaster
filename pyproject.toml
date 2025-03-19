@@ -10,3 +10,67 @@ packages = [{include = "dungeonfaster"}]
 python = "^3.10"
 kivy = "^2.3"
 ffpyplayer = "^4.5"
+
+[tool.pyright]
+pythonVersion = "3.12"
+PythonPlatform = "Linux"
+reportMissingImports = true
+reportAttributeAccessIssue = "none"
+reportOptionalMemberAccess = "none"
+
+[tool.pydocstringformatter]
+write = true
+strip-whitespace = false
+split-summary-body = false
+numpydoc-section-hyphen-length = false
+style = ["numpy", "pep257"]
+max_line_length = 120
+exit-code = true
+
+[tool.black]
+line-length = 120
+
+[tool.isort]
+py_version = 312
+combine_as_imports = true
+line_length = 120
+multi_line_output = 4
+no_inline_sort = true
+no_lines_before = ["LOCALFOLDER"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py312"
+lint.select = [
+    "RUF",
+    "E",
+    "F",
+    "W",
+    "Q",
+    "UP",
+    "B",
+    "A",
+    "I",
+    "N",
+    "YTT",
+    "SIM",
+    "PYI",
+    "ASYNC",
+    "TCH",
+]
+fix = true
+show-fixes = true
+output-format = "full"
+
+[tool.pylint.main]
+disable = [
+    "missing-function-docstring",
+    "no-member",       # Instances of Kivy's Widget.bind
+    "eval-used",       # To get string representation of tuple to actual value
+    "not-an-iterable", # Instance where variable is sometimes None
+    "unused-argument", # Kivy event handlers often have unused parameters
+    "fixme",
+]
+
+[tool.pylint.format]
+max-line-length = 120

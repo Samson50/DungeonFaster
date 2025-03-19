@@ -40,7 +40,7 @@ class CampaignClient:
             poller.register(self.sock, EPOLLIN | EPOLLHUP)
 
             while self.running:
-                events: list[tuple[int, int]] = poller.poll()
+                events: list[tuple[int, int]] = poller.poll(0.5)
 
                 for fd, event in events:
                     if fd == self.sock.fileno():
@@ -54,11 +54,9 @@ class CampaignClient:
         username = "user1" # TODO: As input
         campaign_path = os.path.join(USERS_DIR, f"{username}.json")
 
-        print("sending username")
         # Send username and password
         self.sock.send(f"{username}:password".encode())
 
-        print("receiving campaign")
         # Receive campaign json from server
         self._receive_campaign(campaign_path)
 
@@ -69,10 +67,8 @@ class CampaignClient:
         user_file = open(campaign_path, "wb")
 
         buf = self.sock.recv(RECV_SIZE)
-        print("asdf")
         while len(buf) == RECV_SIZE:
             user_file.write(buf)
-            print("asdf")
             buf = self.sock.recv(RECV_SIZE)
         user_file.write(buf)
 

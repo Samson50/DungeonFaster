@@ -6,6 +6,7 @@ class Player:
         self.level: int = level
 
         self.position: tuple[int, int] = (0, 0)
+        self.image: str = None # TODO
 
     def save(self) -> dict:
         data_dict = {}
@@ -15,6 +16,7 @@ class Player:
         data_dict["race"] = self.race
         data_dict["level"] = self.level
         data_dict["position"] = self.position
+        data_dict["image"] = self.image
 
         return data_dict
 
@@ -23,4 +25,5 @@ class Player:
         self.cls = data_dict["class"]
         self.race = data_dict["race"]
         self.level = data_dict["level"]
-        self.position = tuple(data_dict["position"])
+        self.position = eval(data_dict.get("position", "(0, 0)"))
+        self.image = data_dict.get("image", "party.png")

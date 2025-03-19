@@ -12,6 +12,7 @@ class CampaignServer:
     sock: socket.socket
     clients: list[socket.socket]
     thread: threading.Thread
+    poller: epoll
 
     def __init__(self, port=9191):
         self.port=port
@@ -33,16 +34,15 @@ class CampaignServer:
     def _run_server(self):
 
         with epoll(sizehint=5) as poller:
-            poller.register(self.sock, EPOLLIN)
+            self.poller = poller
+            poller.register(self.sock, EPOLLIN | EPOLLHUP)
 
             while self.running:
-                events: list[tuple[int, int]] = poller.poll()
-                print(f"events: {events}")
-                print(f"self.sock: {self.sock}")
+                events: list[tuple[int, int]] = poller.poll(0.5)
                 for fd, event in events:
                     if fd == self.sock.fileno():
-                        # if event == EPOLLIN:
-                        self._accept_client(self.sock)
+                        if event & EPOLLIN:
+                            self._accept_client(self.sock)
 
                     elif fd in [c.fileno() for c in self.clients]:
                         if event == EPOLLIN:
@@ -50,12 +50,10 @@ class CampaignServer:
                         elif event == EPOLLHUP:
                             self._remove_client(fd)
 
-                time.sleep(1)
+                time.sleep(0.2)
 
     def _accept_client(self, sock: socket.socket):
-        print("accepting")
         new_client, client_addr = sock.accept()
-        print("accept cleint")
         # Receive username:password
         user_buf: bytes = new_client.recv(1028)
         username = user_buf.decode().split(":")[0]
@@ -65,11 +63,9 @@ class CampaignServer:
             new_client.close()
             return
         
-        print("sending campaign")
         with open(self.campaign.path, "rb") as campaign_file:
             campaign_bytes: bytes = campaign_file.read()
             new_client.send(campaign_bytes)
-        print("sent campaign")
 
         self.clients.append(new_client)
         # TODO: Register new client
@@ -83,3 +79,9 @@ class CampaignServer:
 
     def _send_client_update(self, fd: socket.socket):
         pass
+
+    def stop(self):
+        self.running = False
+        self.sock.close()
+        self.poller.close()
+        self.thread.join()

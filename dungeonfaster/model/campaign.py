@@ -1,22 +1,21 @@
-import os
 import json
+import os
 
 from kivy.uix.widget import Widget
 
 from dungeonfaster.model.location import Location
 from dungeonfaster.model.player import Player
-from dungeonfaster.model.map import Map
 
 
 class Campaign:
     path: str
+    current_location: Location
 
     def __init__(self):
         self.name: str | os.PathLike = ""
         self.save_path: str | os.PathLike = ""
         self.position: tuple[int, int] = (0, 0)
         self.locations: dict[str, Location] = {}
-        self.current_location: Location = None
         self.party: list[Player] = []
 
     def save(self, out_path: str | os.PathLike) -> None:
@@ -44,7 +43,7 @@ class Campaign:
             string_data = load_file.read()
             load_data = json.loads(string_data)
 
-        if "party" in load_data.keys():
+        if "party" in load_data:
             for player_dict in load_data["party"]:
                 new_player: Player = Player()
                 new_player.load(player_dict)
@@ -58,13 +57,13 @@ class Campaign:
             self.locations[name] = Location(name, location_data)
             self.locations[name].load(surface)
 
-        self.current_location = self.getLocation(load_data["current_location"])
+        self.current_location = self.get_location(load_data["current_location"])
 
-    def getLocation(self, name: str, locations=None) -> Location | None:
-        return self.locations.get(name, None)
+    def get_location(self, name: str) -> Location:
+        try:
+            return self.locations[name]
+        except KeyError:
+            return self.locations["overworld"]
 
-    def goToLocation(self, x: int, y: int) -> None:
-        pass
-
-    def addPlayer(self, player: Player):
+    def add_player(self, player: Player):
         self.party.append(player)

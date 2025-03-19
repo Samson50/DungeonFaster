@@ -1,5 +1,6 @@
 import os
 
+from kivy.core.window import Window
 from kivy.uix.screenmanager import Screen
 
 from dungeonfaster.gui.campaignView import CampaignView
@@ -7,7 +8,6 @@ from dungeonfaster.gui.menuManager import MenuManager
 
 
 class RunCampaignScreen(Screen):
-
     def __init__(self, manager: MenuManager, **kwargs):
         super().__init__(name="RunCampaign")
 
@@ -28,3 +28,10 @@ class RunCampaignScreen(Screen):
 
     def load(self, campaign_path: os.PathLike) -> None:
         self.campaign_view.load(campaign_path)
+
+        # https://stackoverflow.com/questions/54501099/how-to-run-a-method-on-the-exit-of-a-kivy-app
+        Window.bind(on_request_close=self.stop_server)
+
+    def stop_server(self, args):
+        self.campaign_view.server.stop()
+        return False

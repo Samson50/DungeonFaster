@@ -1,25 +1,27 @@
 import os
 
+from kivy.graphics import Rectangle
 from kivy.uix.image import Image
 from kivy.uix.widget import Widget
-from kivy.graphics import Rectangle
 
-from dungeonfaster.model.grid import Grid, SquareGrid, HexGrid
+from dungeonfaster.model.grid import Grid, HexGrid, SquareGrid
 from dungeonfaster.model.window import Window
 
-
 RESOURCES_DIR = os.path.join(os.environ["DUNGEONFASTER_PATH"], "resources")
+CAMPAIGNS_DIR = os.path.join(os.environ["DUNGEONFASTER_PATH"], "campaigns")
+CAMP_FILE_DIR = os.path.join(CAMPAIGNS_DIR, "files")
 
 GRID_TYPE_SQUARE = "square"
 GRID_TYPE_HEX = "hex"
 
 
 class Map:
-    def __init__(self, map_file: os.PathLike = None):
+    image: Image
+
+    def __init__(self, map_file: os.PathLike):
         # TODO: Down-sample very large high-resolution maps when screens are small and zoom is low
 
-        self.map_file = map_file
-        self.image = None
+        self.map_file = os.path.join(CAMP_FILE_DIR, map_file)
         self.width = 0
         self.height = 0
 
@@ -29,7 +31,7 @@ class Map:
         self.points_of_interest: list[tuple[int, int]] = []
         self.drawn_poi: dict[tuple[int, int], Rectangle] = {}
 
-        self.load_image(map_file)
+        self.load_image()
         # self.tile: Image = Image(source="resources/map/highlight_grid.png")
 
         # Offset of screen viewing map
@@ -44,15 +46,13 @@ class Map:
         self.drawn_tiles: list[Rectangle] = []
         self.map_rect: Rectangle = None
 
-    def load_image(self, map_file: str | os.PathLike):
-        if map_file is None:
-            return
-        self.image = Image(source=map_file)
+    def load_image(self):
+        self.image = Image(source=self.map_file)
         (self.width, self.height) = self.image.texture.size
         if self.grid.matrix is None:
             self.grid.update(self.width, self.height)
 
-    def getZoomForSurface(self, surface: Widget):
+    def get_zoom_for_surface(self, surface: Widget):
         self.window.surface = surface
         if self.height / surface.height > self.width / surface.width:
             self.window.zoom = self.width / surface.width
@@ -70,7 +70,8 @@ class Map:
         if load_json["grid_type"] == GRID_TYPE_HEX:
             self.grid = HexGrid(window=self.window)
 
-        self.load_image(self.map_file)
+        # Image files must be under campaigns/files/
+        # self.load_image()
 
         self.grid.load(load_json["grid"])
 
@@ -100,36 +101,33 @@ class Map:
         self.drawn_tiles = []
         self.drawn_poi = {}
 
-    def toHex(self):
-
-        hexGrid = HexGrid(window=self.window)
-        self.changeGrid(self.grid, hexGrid)
+    def to_hex(self):
+        hex_grid = HexGrid(window=self.window)
+        self.change_grid(self.grid, hex_grid)
 
         self.grid_type = GRID_TYPE_HEX
-        self.grid = hexGrid
+        self.grid = hex_grid
         self.update()
 
-    def toSquare(self):
-
-        squareGrid = SquareGrid(window=self.window)
-        self.changeGrid(self.grid, squareGrid)
+    def to_square(self):
+        square_grid = SquareGrid(window=self.window)
+        self.change_grid(self.grid, square_grid)
 
         self.grid_type = GRID_TYPE_SQUARE
-        self.grid = squareGrid
+        self.grid = square_grid
         self.update()
 
-    def changeGrid(self, oldGrid: Grid, newGrid: Grid):
-        newGrid.x = oldGrid.x
-        newGrid.y = oldGrid.y
-        newGrid.pixel_density = oldGrid.pixel_density
-        newGrid.x_offset = oldGrid.x_offset
-        newGrid.y_offset = oldGrid.y_offset
+    def change_grid(self, old_grid: Grid, new_grid: Grid):
+        new_grid.x = old_grid.x
+        new_grid.y = old_grid.y
+        new_grid.pixel_density = old_grid.pixel_density
+        new_grid.x_offset = old_grid.x_offset
+        new_grid.y_offset = old_grid.y_offset
 
-    def drawMap(self) -> None:
-
-        texture = self.window.getSubTexture(self.image)
-        pos = self.window.getRegionPos()
-        size = self.window.getRegionSize()
+    def draw_map(self) -> None:
+        texture = self.window.get_sub_texture(self.image)
+        pos = self.window.get_region_pos()
+        size = self.window.get_region_size()
         if self.map_rect is None:
             self.map_rect = Rectangle(texture=texture, size=size, pos=pos)
             self.window.surface.canvas.add(self.map_rect)
@@ -138,51 +136,46 @@ class Map:
             self.map_rect.pos = pos
             self.map_rect.size = size
 
-    def drawTile(self, x: int, y: int) -> None:
+    def draw_tile(self, x: int, y: int) -> None:
         # Obscuration tile at index
-        tile: Rectangle = self.grid.image_matrix.get((x,y), None)
+        tile: Rectangle = self.grid.image_matrix.get((x, y), None)
 
         if (x, y) in self.grid.matrix:
-
             if tile is None:
-                tile = self.grid.getRect(x, y, self.grid.hidden_image_path)
-                self.grid.image_matrix[(x,y)] = tile
+                tile = self.grid.get_rect(x, y, self.grid.hidden_image_path)
+                self.grid.image_matrix[(x, y)] = tile
 
-            # Tile is within display window (mostly)
-            if self.window.showing(tile):
-                # Has the tile been drawn already?
-                if tile not in self.drawn_tiles:
-                    # Add to canvas and tracking list
-                    self.window.surface.canvas.add(tile)
-                    self.drawn_tiles.append(tile)
+            # Tile is within display window (mostly) and has the tile been drawn already?
+            if self.window.showing(tile) and tile not in self.drawn_tiles:
+                # Add to canvas and tracking list
+                self.window.surface.canvas.add(tile)
+                self.drawn_tiles.append(tile)
         elif tile in self.drawn_tiles:
             self.window.surface.canvas.remove(tile)
             self.drawn_tiles.remove(tile)
 
-        self.grid.updateTile(x, y)
+        self.grid.update_tile(x, y)
 
-    def drawPoI(self):
+    def draw_poi(self):
         # TODO: Seems to be an issue with PoI highlights on sub-locations
         for poi in self.points_of_interest:
             # If the PoI tile is revealed
             if poi not in self.grid.matrix:
-                if poi in self.drawn_poi.keys():
+                if poi in self.drawn_poi:
                     poi_rect = self.drawn_poi[poi]
-                    self.grid.updateRect(poi_rect, poi[0], poi[1])
+                    self.grid.update_rect(poi_rect, poi[0], poi[1])
                 else:
-                    poi_rect = self.grid.getRect(
-                        *poi, os.path.join(RESOURCES_DIR, "icons", "poi.png")
-                    )
+                    poi_rect = self.grid.get_rect(*poi, os.path.join(RESOURCES_DIR, "icons", "poi.png"))
 
                 # If the PoI is within the display window
                 if self.window.showing(poi_rect):
                     # If the PoI has not been drawn yet
-                    if not poi in self.drawn_poi.keys():
+                    if poi not in self.drawn_poi:
                         # Draw the PoI
                         self.window.surface.canvas.add(poi_rect)
                         self.drawn_poi[poi] = poi_rect
 
-                elif poi in self.drawn_poi.keys():
+                elif poi in self.drawn_poi:
                     # Remove the PoI from canvas and tracking list
                     try:
                         self.window.surface.canvas.remove(self.drawn_poi[poi])
@@ -190,16 +183,16 @@ class Map:
                         pass
                     del self.drawn_poi[poi]
 
-    def drawTiles(self):
+    def draw_tiles(self):
         self.grid.scale_tiles()
 
         # Check if tiles need to be added/removed
         for x in range(self.grid.x):
             for y in range(self.grid.y):
-                self.drawTile(x, y)
+                self.draw_tile(x, y)
 
         # Draw tiles marking revealed PoIs
-        self.drawPoI()
+        self.draw_poi()
 
     def flip_at_coordinate(self, px: float, py: float) -> None:
         (x, y) = self.grid.pixel_to_index(px, py)
@@ -230,8 +223,8 @@ class Map:
                 self.window.surface.canvas.remove(tile)
 
     def draw(self):
-        self.drawMap()
-        self.drawTiles()
+        self.draw_map()
+        self.draw_tiles()
         # TODO: self.drawObjects()
 
     def get_grid(self, x, y):

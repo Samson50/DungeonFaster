@@ -1,9 +1,9 @@
-import re
 import os
+import re
 
 from kivy.uix.accordion import AccordionItem
-from kivy.uix.button import Button
 from kivy.uix.boxlayout import BoxLayout
+from kivy.uix.button import Button
 from kivy.uix.filechooser import FileChooserListView
 from kivy.uix.image import Image
 from kivy.uix.label import Label
@@ -84,7 +84,7 @@ class CollapseItem(AccordionItem):
 
         # Add placeholder items
         for x in range(self.initial_children - 1):
-            self.list_layout.add_widget(Label(text=f"[...]"))
+            self.list_layout.add_widget(Label(text="[...]"))
 
         self.scroll_view.add_widget(self.list_layout)
 
@@ -111,7 +111,7 @@ class CollapseItem(AccordionItem):
 
         self.list_layout.size_hint = (1, 0.5 * n_children)
 
-    def addEntry(self, entry: EditableListEntry):
+    def add_entry(self, entry: EditableListEntry):
         children = self.list_layout.children
         n_children = len(children)
 
@@ -128,7 +128,7 @@ class CollapseItem(AccordionItem):
 
         self.list_layout.add_widget(entry, replace_index)
 
-    def removeEntry(self, entry: EditableListEntry):
+    def remove_entry(self, entry: EditableListEntry):
         self.list_layout.remove_widget(entry)
 
         n_children = len(self.list_layout.children)
@@ -137,10 +137,10 @@ class CollapseItem(AccordionItem):
 
         self.list_layout.size_hint = (1, 0.5 * n_children)
 
-    def clearList(self):
+    def clear_list(self):
         for child in self.list_layout.children:
             if isinstance(child, EditableListEntry):
-                self.removeEntry(child)
+                self.remove_entry(child)
 
 
 class LabeledIntInput(BoxLayout):
@@ -153,9 +153,7 @@ class LabeledIntInput(BoxLayout):
 
         self.text = Label(text=name, size_hint=(0.3, 1))
         self.add_widget(self.text)
-        self.input = FloatInput(
-            self, text=str(self.value), multiline=False, size_hint=(0.3, 1)
-        )
+        self.input = FloatInput(self, text=str(self.value), multiline=False, size_hint=(0.3, 1))
         self.add_widget(self.input)
         dec_button = Button(text="<", size_hint=(0.2, 1))
         dec_button.bind(on_release=self.lower_value)
@@ -187,7 +185,6 @@ class LabeledTextInput(BoxLayout):
 
 
 class FloatInput(TextInput):
-
     def __init__(self, container: LabeledIntInput, **kwargs):
         super().__init__(**kwargs)
 
@@ -221,11 +218,9 @@ class SimpleDialog(BoxLayout):
 
         self.content_layout = BoxLayout(orientation="vertical")
 
-        self.buttonsLayout = BoxLayout(
-            orientation="horizontal", height=30, size_hint_y=None
-        )
+        self.buttonsLayout = BoxLayout(orientation="horizontal", height=30, size_hint_y=None)
         self.cancelButton = Button(text="Cancel")
-        self.cancelButton.bind(on_release=self.closeDialog)
+        self.cancelButton.bind(on_release=self.close_dialog)
         self.selectButton = Button(text=select_text)
         self.buttonsLayout.add_widget(self.cancelButton)
         self.buttonsLayout.add_widget(self.selectButton)
@@ -233,15 +228,13 @@ class SimpleDialog(BoxLayout):
         self.add_widget(self.content_layout)
         self.add_widget(self.buttonsLayout)
 
-    def openDialog(self, ignored):
+    def open_dialog(self, ignored):
         if self._popup is None:
-            self._popup = Popup(
-                title=self.popup_title, content=self, size_hint=(0.9, 0.9)
-            )
+            self._popup = Popup(title=self.popup_title, content=self, size_hint=(0.9, 0.9))
 
         self._popup.open()
 
-    def closeDialog(self, ignored):
+    def close_dialog(self, ignored):
         self._popup.dismiss()
 
 
@@ -250,6 +243,7 @@ class NewPlayerDialog(SimpleDialog):
     player_class: str
     player_race: str
     player_level: int = 1
+
     def __init__(self, on_select, **kwargs):
         super().__init__(
             popup_title="New Player",
@@ -287,7 +281,6 @@ class NewPlayerDialog(SimpleDialog):
 
 
 class FileDialog(SimpleDialog):
-
     def __init__(
         self,
         select_text="Select",
@@ -302,18 +295,18 @@ class FileDialog(SimpleDialog):
             **kwargs,
         )
 
-        fileChooser = FileChooserListView(path=path)
-        fileChooser.bind(selection=self.set_text)
-        textInput = TextInput(size_hint_y=None, height=30)
-        self.textInput = textInput
+        file_chooser = FileChooserListView(path=path)
+        file_chooser.bind(selection=self.set_text)
+        text_input = TextInput(size_hint_y=None, height=30)
+        self.text_input = text_input
 
         if on_select:
             self.selectButton.bind(on_release=on_select)
         else:
-            self.selectButton.bind(on_release=self.closeDialog)
+            self.selectButton.bind(on_release=self.close_dialog)
 
-        self.content_layout.add_widget(fileChooser)
-        self.content_layout.add_widget(textInput)
+        self.content_layout.add_widget(file_chooser)
+        self.content_layout.add_widget(text_input)
 
     def set_text(self, obj, val):
-        self.textInput.text = val[0]
+        self.text_input.text = val[0]

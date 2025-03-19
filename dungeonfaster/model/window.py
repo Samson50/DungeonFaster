@@ -1,7 +1,13 @@
-from kivy.uix.widget import Widget
-from kivy.uix.image import Image
+from typing import TYPE_CHECKING
+
 from kivy.graphics import Rectangle
+
+# pylint: disable=no-name-in-module
 from kivy.graphics.texture import Texture
+from kivy.uix.image import Image
+
+if TYPE_CHECKING:
+    from kivy.uix.widget import Widget
 
 
 class Window:
@@ -14,7 +20,7 @@ class Window:
         self.region_width = 0
         self.region_height = 0
 
-    def getSubTexture(self, image: Image) -> Texture:
+    def get_sub_texture(self, image: Image) -> Texture:
         """Get a sub-texture of the given image which is zoomed, shifted, and cropped to be
         displayed within the current window.
 
@@ -26,15 +32,11 @@ class Window:
         """
         (image_width, image_height) = image.texture.size
 
-        self.region_width = min(
-            self.surface.width * self.zoom, image_width - self.x * self.zoom
-        )
+        self.region_width = min(self.surface.width * self.zoom, image_width - self.x * self.zoom)
         if self.x < 0:
             self.region_width += self.x * self.zoom
 
-        self.region_height = min(
-            self.surface.height * self.zoom, image_height - self.y * self.zoom
-        )
+        self.region_height = min(self.surface.height * self.zoom, image_height - self.y * self.zoom)
         if self.y < 0:
             self.region_height += self.y * self.zoom
 
@@ -45,7 +47,7 @@ class Window:
             self.region_height,
         )
 
-    def getRegionSize(self) -> tuple[float, float]:
+    def get_region_size(self) -> tuple[float, float]:
         """Get the size of the region of the map within the display window scaled to display
         within the main window.
 
@@ -72,7 +74,7 @@ class Window:
 
         return (width, height)
 
-    def getRegionPos(self) -> tuple[int, int]:
+    def get_region_pos(self) -> tuple[int, int]:
         """Get the position of the map-region relative to the display window
 
         Returns:

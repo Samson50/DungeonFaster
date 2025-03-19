@@ -1,18 +1,20 @@
 import os
 import time
 
-from kivy.uix.screenmanager import Screen
 from kivy.uix.button import Button
+from kivy.uix.screenmanager import Screen
 
 from dungeonfaster.gui.menuManager import MenuManager
 from dungeonfaster.gui.playerView import PlayerView
-from dungeonfaster.networking.client import CampaignClient
 from dungeonfaster.model.campaign import Campaign
+from dungeonfaster.networking.client import CampaignClient
 
 USERS_DIR = os.path.join(os.environ["DUNGEONFASTER_PATH"], "users")
 # TODO: Add connection dialog box - username, password, server address
 
+
 class PlayerScreen(Screen):
+    client_connection: CampaignClient
 
     def __init__(self, manager: MenuManager, **kwargs):
         super().__init__(name="Player")
@@ -45,7 +47,7 @@ class PlayerScreen(Screen):
 
         # Load campaign
         self.player_view.campaign = Campaign()
-        username = "user1" # TODO: As input
+        username = "user1"  # TODO: As input
         campaign_path = os.path.join(USERS_DIR, f"{username}.json")
         self.player_view.campaign.load(campaign_path, self.player_view.map_layout)
         self.player_view.map = self.player_view.campaign.current_location.map

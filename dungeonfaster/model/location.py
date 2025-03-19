@@ -8,12 +8,13 @@ from dungeonfaster.model.map import Map
 
 class Location:
     def __init__(self, name: str, location_data: dict):
-        self.parent: str | None = location_data.get("parent", None)
+        self.parent: str = location_data.get("parent", "overworld")
         if not self.parent and name != "overworld":
             self.parent = "overworld"
         self.name: str = name
-        self.map: Map = Map()
+        self.type: str = location_data.get("type", "group")
         self.map_data: dict = location_data.get("map", {})
+        self.map: Map = Map(self.map_data["map_file"])
         self.position: tuple[int, int] = location_data.get("position", (0, 0))
         self.music: list[str] = location_data.get("music", [])
         self.combat_music: list[str] = location_data.get("combat_music", [])
@@ -30,13 +31,20 @@ class Location:
 
     def set_map(self, map_file: os.PathLike):
         self.map = Map(map_file=map_file)
-        self.map.load_image(map_file)
+        self.map.load_image()
 
     def save(self) -> dict:
-        save_dict = {"name": self.name, "map": self.map.save(), "music": self.music, "combat_music": self.combat_music,
-                     "position": str(self.position), "transitions": self.transitions}
-        
-        save_dict["transitions"] = {str(pos): name for pos,name in self.transitions.items()}
+        save_dict = {
+            "name": self.name,
+            "map": self.map.save(),
+            "music": self.music,
+            "combat_music": self.combat_music,
+            "position": str(self.position),
+            "transitions": self.transitions,
+            "type": self.type,
+        }
+
+        save_dict["transitions"] = {str(pos): name for pos, name in self.transitions.items()}
         save_dict["entrances"] = {str(from_pos): str(to_pos) for from_pos, to_pos in self.entrances.items()}
 
         return save_dict

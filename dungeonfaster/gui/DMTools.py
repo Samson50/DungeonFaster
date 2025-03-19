@@ -1,20 +1,13 @@
-from json import tool
-import re
-import os
+from collections.abc import Callable
 
-from kivy.uix.accordion import AccordionItem, Accordion
-from kivy.uix.button import Button
 from kivy.uix.boxlayout import BoxLayout
-from kivy.uix.filechooser import FileChooserListView
-from kivy.uix.image import Image
-from kivy.uix.label import Label
-from kivy.uix.popup import Popup
-from kivy.uix.scrollview import ScrollView
-from kivy.uix.textinput import TextInput
+from kivy.uix.button import Button
 from kivy.uix.layout import Layout
+from kivy.uix.scrollview import ScrollView
+
 
 class ToolBox(BoxLayout):
-    def __init__(self, name: str, focus: callable, **kwargs):
+    def __init__(self, name: str, focus: Callable, **kwargs):
         super().__init__(orientation="vertical", **kwargs)
         self.name = name
         self.expanded = False
@@ -26,12 +19,12 @@ class ToolBox(BoxLayout):
 
         self.sub_layout = BoxLayout(orientation="vertical")
 
-        for i in range(3):
-            self.sub_layout.add_widget(Button(text=f"button{i}"))
+        # for i in range(3):
+        #     self.sub_layout.add_widget(Button(text=f"button{i}"))
 
     def num_display(self):
         return len(self.sub_layout.children)
-    
+
     def expand(self):
         print(f"expanded {self.name}")
         if self.expanded:
@@ -45,6 +38,7 @@ class ToolBox(BoxLayout):
             self.sub_layout.size_hint[1] = self.num_display()
             self.size_hint[1] = self.num_display() + 1
 
+
 class DMTools(BoxLayout):
     def __init__(self, view: Layout, **kwargs):
         super().__init__(orientation="vertical", **kwargs)
@@ -57,14 +51,12 @@ class DMTools(BoxLayout):
 
         self.initial_size_hint = kwargs["size_hint"]
 
-
         self.scroll_view = ScrollView(do_scroll_x=False)
 
         self.controls_layout = BoxLayout(
             orientation="vertical",
             size_hint=(1, 1),
         )
-
 
         self._add_players_box()
         self.controls_layout.add_widget(ToolBox("NPCs", self._box_on_click))
@@ -76,7 +68,6 @@ class DMTools(BoxLayout):
     def _add_players_box(self):
         self.players_box = ToolBox("Players", self._box_on_click)
         self.controls_layout.add_widget(self.players_box)
-        
 
     def _num_display(self):
         num_display = len(self.controls_layout.children)
@@ -92,14 +83,12 @@ class DMTools(BoxLayout):
             self.size_hint[1] = self.initial_size_hint[1]
 
         else:
-
             self.expanded = True
             print(self.size_hint)
             self.add_widget(self.scroll_view)
             self.size_hint[1] = self.initial_size_hint[1] * (self._num_display() + 1)
 
         self.scroll_view.size_hint[1] = self._num_display()
-        
 
     def _box_on_click(self, instance: Button):
         tool_box: ToolBox = instance.parent
