@@ -73,7 +73,7 @@ class CollapseItem(AccordionItem):
 
         self.list_layout = BoxLayout(
             orientation="vertical",
-            size_hint=(1, 2),
+            size_hint=(1, 1),
         )
         self.initial_children = 5
 

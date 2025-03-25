@@ -29,6 +29,8 @@ class RunCampaignScreen(Screen):
     def load(self, campaign_path: os.PathLike) -> None:
         self.campaign_view.load(campaign_path)
 
+        self.campaign_view.start_server()
+
         # https://stackoverflow.com/questions/54501099/how-to-run-a-method-on-the-exit-of-a-kivy-app
         Window.bind(on_request_close=self.stop_server)
 

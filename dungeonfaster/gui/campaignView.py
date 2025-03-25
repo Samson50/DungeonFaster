@@ -168,7 +168,6 @@ class CampaignView(MapView):
             self.update_playlist(tmp)
 
         self.draw()
-        self.start_server()
 
     def update_playlist(self, location: Location) -> None:
         for song in location.music:

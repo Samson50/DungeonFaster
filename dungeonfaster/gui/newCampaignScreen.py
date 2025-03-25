@@ -1,17 +1,21 @@
 import os
+import shutil
 
-from kivy.graphics import Rectangle, Color
+from kivy.graphics import Color, Ellipse, Line, Rectangle
 from kivy.input.motionevent import MotionEvent
 from kivy.uix.accordion import Accordion, AccordionItem
-from kivy.uix.button import Button
-from kivy.uix.screenmanager import Screen
 from kivy.uix.boxlayout import BoxLayout
+from kivy.uix.button import Button
+from kivy.uix.floatlayout import FloatLayout
 from kivy.uix.label import Label
+from kivy.uix.screenmanager import Screen
 from kivy.uix.switch import Switch
 from kivy.uix.textinput import TextInput
+from numpy import gradient
+from sympy import false
 
-from dungeonfaster.gui.menuManager import MenuManager
 from dungeonfaster.gui.campaignView import CampaignView
+from dungeonfaster.gui.menuManager import MenuManager
 from dungeonfaster.gui.utilities import (
     CollapseItem,
     EditableListEntry,
@@ -20,20 +24,30 @@ from dungeonfaster.gui.utilities import (
     LabeledTextInput,
     NewPlayerDialog,
 )
-
 from dungeonfaster.model.location import Location
 from dungeonfaster.model.map import Map
 from dungeonfaster.model.player import Player
 
 CAMPAIGNS_DIR = os.path.join(os.environ["DUNGEONFASTER_PATH"], "campaigns")
+CAMP_FILE_DIR = os.path.join(CAMPAIGNS_DIR, "files")
 
 
 class NewCampaignScreen(Screen):
+    overworld_map_dialog: FileDialog
+
     def __init__(self, manager: MenuManager, **kwargs):
         super().__init__(name="NewCampaign")
 
         self.menuManager = manager
         self.fileChooser = None
+
+        self.walls: dict[Ellipse, tuple[float, float]] = {}
+        self.lines: list[Line] = []
+        self.line = Line(points=[], width=2)
+        self.grabbed_wall: Ellipse | None = None
+        self.wall_moved: bool = False
+        self.active_wall: Ellipse | None = None
+        self.wall_segments: list[list[Ellipse]] = [[]]
 
         layout = BoxLayout(orientation="vertical")
 
@@ -41,14 +55,14 @@ class NewCampaignScreen(Screen):
         self.saveDialog = FileDialog(
             select_text="Save",
             popup_title="Save Campaign",
-            on_select=self.onSaveCampaign,
+            on_select=self.on_save_campaign,
             path=CAMPAIGNS_DIR,
         )
 
         self.loadDialog = FileDialog(
             select_text="Load",
             popup_title="Load Campaign",
-            on_select=self.onLoadCampaign,
+            on_select=self.on_load_campaign,
             path=CAMPAIGNS_DIR,
         )
 
@@ -86,9 +100,13 @@ class NewCampaignScreen(Screen):
         # Map layout
         self.campaign_view = CampaignView(self, size_hint=(0.7, 1))
         self.campaign_view.bind(on_touch_down=self.campaign_view.on_click)
+        self.campaign_view.bind(on_touch_up=self.campaign_view.on_click_up)
         self.getMapButton = Button(text="Select Overworld Map")
-        self.getMapButton.bind(on_release=self.selectOverworldMapDialog)
+        self.getMapButton.bind(on_release=self.select_overworld_map_dialog)
         self.campaign_view.add_widget(self.getMapButton)
+
+        # Override normal map draw
+        self.campaign_view.draw = self.draw
 
         editor_layout.add_widget(self.campaign_view)
 
@@ -108,26 +126,177 @@ class NewCampaignScreen(Screen):
         )
         self.location_back_button.bind(on_release=self.location_back_cb)
 
+    def draw(self):
+        self.campaign_view.map.draw()
+        if not self.campaign_view.moving_token:
+            self.campaign_view.draw_party()
+        self.campaign_view.draw_selected()
+
+        self.draw_walls()
+
+    def draw_walls(self):
+        for wall, wall_pos in self.walls.items():
+            if wall == self.active_wall:
+                wall.size = (40, 40)
+            elif wall == self.grabbed_wall:
+                wall.size = (60, 60)
+            else:
+                wall.size = (20, 20)
+
+            if wall not in self.campaign_view.map.window.surface.canvas.children:
+                self.campaign_view.map.window.surface.canvas.add(wall)
+            # else:
+            wall_x, wall_y = wall_pos
+            circle_x = wall_x / self.campaign_view.map.window.zoom - self.campaign_view.map.window.x
+            circle_y = wall_y / self.campaign_view.map.window.zoom - self.campaign_view.map.window.y
+            wall.pos = (circle_x, circle_y)
+            wall.pos = (wall.pos[0] - wall.size[0] / 2, wall.pos[1] - wall.size[1] / 2)
+
+        # Draw actual wall
+        points = []
+        for wall in self.walls:
+            points.append(wall.pos[0] + wall.size[0] / 2)
+            points.append(wall.pos[1] + wall.size[1] / 2)
+        self.line.points = points
+        if self.line not in self.campaign_view.map.window.surface.canvas.children:
+            self.campaign_view.map.window.surface.canvas.add(self.line)
+
+    def on_touch_move(self, touch: MotionEvent):
+        if self.grabbed_wall:
+            self.wall_moved = True
+            cursor_x, cursor_y = touch.pos
+            wall_x: float = (self.campaign_view.map.window.x + cursor_x) * self.campaign_view.map.window.zoom
+            wall_y: float = (self.campaign_view.map.window.y + cursor_y) * self.campaign_view.map.window.zoom
+
+            wall_dot = self.grabbed_wall
+            wall_dot.pos = (cursor_x - wall_dot.size[0] / 2, cursor_y - wall_dot.size[1] / 2)
+            self.walls[wall_dot] = (wall_x, wall_y)
+        self.draw_walls()
+
+    def wall_collide(self, pos: tuple[float, float], wall: Ellipse) -> bool:
+        wall_x, wall_y = wall.pos
+        wall_width, wall_height = wall.size
+        cursor_x, cursor_y = pos
+        x_offset = self.campaign_view.map_layout.x
+        y_offset = self.campaign_view.map_layout.y
+
+        return bool(
+            cursor_x < wall_x + wall_width + x_offset
+            and cursor_x > wall_x
+            and cursor_y < wall_y + wall_height + y_offset
+            and cursor_y > wall_y
+        )
+
+    def wall_resize(self, wall: Ellipse, size: tuple[float, float]):
+        wall_x, wall_y = wall.pos
+        circle_x = wall_x / self.campaign_view.map.window.zoom - self.campaign_view.map.window.x
+        circle_y = wall_y / self.campaign_view.map.window.zoom - self.campaign_view.map.window.y
+        wall.pos = (circle_x - wall.size[0] / 2, circle_y - wall.size[1] / 2)
+
+    def wall_touch_down(self, layout: FloatLayout, event: MotionEvent):
+        for wall, wall_pos in self.walls.items():
+            if self.wall_collide(event.pos, wall):
+                self.grabbed_wall = wall
+                self.grabbed_wall.size = (60, 60)
+                wall_x, wall_y = wall_pos
+                circle_x = wall_x / self.campaign_view.map.window.zoom - self.campaign_view.map.window.x
+                circle_y = wall_y / self.campaign_view.map.window.zoom - self.campaign_view.map.window.y
+                wall.pos = (circle_x - wall.size[0] / 2, circle_y - wall.size[1] / 2)
+                return
+
+        if self.grabbed_wall:
+            self.grabbed_wall = None
+
+        self.campaign_view.on_click(layout, event)
+
+    def wall_touch_up(self, layout: FloatLayout, event: MotionEvent):
+        if self.campaign_view.moved:
+            return
+
+        # If current grabbing wall
+        if self.grabbed_wall:
+            print("has grab")
+            # self.grabbed_wall.size = (20, 20)
+            wall = self.grabbed_wall
+            wall_x, wall_y = self.walls[self.grabbed_wall]
+            self.grabbed_wall = None
+            circle_x = wall_x / self.campaign_view.map.window.zoom - self.campaign_view.map.window.x
+            circle_y = wall_y / self.campaign_view.map.window.zoom - self.campaign_view.map.window.y
+            wall.pos = (circle_x - wall.size[0] / 2, circle_y - wall.size[1] / 2)
+            # wall.size = (20, 20)
+            self.draw_walls()
+            if self.wall_moved:
+                print("moved")
+                self.wall_moved = False
+                return
+
+        if not self.active_wall:
+            for wall in self.walls:
+                if self.wall_collide(event.pos, wall):
+                    self.active_wall = wall
+                    print("set active")
+                    self.draw_walls()
+                    return
+        else:
+            for wall in self.walls:
+                if self.wall_collide(event.pos, wall):
+                    self.active_wall = wall
+                    return
+
+        if self.active_wall and self.wall_collide(event.pos, self.active_wall):
+            # self.active_wall.size = (20, 20)
+            self.active_wall = None
+        else:
+            for wall in self.walls:
+                if self.wall_collide(event.pos, wall):
+                    self.draw_walls()
+                    return
+            # Place new wall
+            cursor_x, cursor_y = event.pos
+            wall_x: float = (self.campaign_view.map.window.x + cursor_x) * self.campaign_view.map.window.zoom
+            wall_y: float = (self.campaign_view.map.window.y + cursor_y) * self.campaign_view.map.window.zoom
+
+            wall_dot = Ellipse(segments=3, size=(20, 20), pos=(cursor_x, cursor_y))
+            wall_dot.pos = (wall_dot.pos[0] - wall_dot.size[0] / 2, wall_dot.pos[1] - wall_dot.size[1] / 2)
+            self.walls[wall_dot] = (wall_x, wall_y)
+            self.campaign_view.map_layout.canvas.add(wall_dot)
+
+            self.campaign_view.map.walls.append((wall_x, wall_y))
+
+            # if self.active_wall:
+            #     print("active set")
+            # self.active_wall.size = (20, 20)
+
+            print("new is active")
+            self.active_wall = wall_dot
+            # self.active_wall.size = (40, 40)
+
+        # self.campaign_view.on_click_up(layout, event)
+        self.draw_walls()
+
+    def wall_move(self):
+        pass
+
     def on_text(self, instance: TextInput, value: str) -> None:
         self.campaign_view.campaign.name = value
 
-    def selectOverworldMapDialog(self, instance):
-        self.overworldMapDialog = FileDialog(
+    def select_overworld_map_dialog(self, instance):
+        self.overworld_map_dialog = FileDialog(
             popup_title="Select Overworld Map",
-            on_select=self.saveOverworldMap,
+            on_select=self.save_overworld_map,
         )
 
-        self.overworldMapDialog.open_dialog(None)
+        self.overworld_map_dialog.open_dialog(None)
 
-    def saveOverworldMap(self, instance):
+    def save_overworld_map(self, instance):
         # Set overworld map file
-        overworldMapFile = self.overworldMapDialog.textInput.text
+        overworld_map_file = self.overworld_map_dialog.text_input.text
         self.campaign_view.remove_widget(self.getMapButton)
-        self.overworldMapDialog.close_dialog(None)
+        self.overworld_map_dialog.close_dialog(None)
         # TODO: Move map file to campaigns/files
 
         base_location = Location("overworld", {})
-        base_location.set_map(overworldMapFile)
+        base_location.set_map(overworld_map_file)
         self.campaign_view.map = base_location.map
 
         self.campaign_view.add_location(base_location, "overworld")
@@ -143,30 +312,33 @@ class NewCampaignScreen(Screen):
         if current_location.parent is None:
             self.remove_widget(self.location_back_button)
 
-        self.toLocation(current_location)
+        self.to_location(current_location)
 
-    def onSaveCampaign(self, instance):
-        saveFile = self.saveDialog.textInput.text
-        self.campaign_view.save(saveFile)
+    def on_save_campaign(self, instance):
+        save_file = self.saveDialog.text_input.text
+        self.campaign_view.save(save_file)
 
         self.saveDialog.close_dialog(None)
 
-    def onLoadCampaign(self, instance):
-        loadFile = self.loadDialog.textInput.text
+    def on_load_campaign(self, instance):
+        load_file = self.loadDialog.text_input.text
         self.loadDialog.close_dialog(None)
-        try:
-            self.campaign_view.load(loadFile)
-        except Exception as e:
-            print(e)
-            return
+
+        self.campaign_view.load(load_file)
+
         self.campaign_view.remove_widget(self.getMapButton)
 
         # If location.parent, add back button
         if self.campaign_view.campaign.current_location.parent is not None:
-            self.addBackButton()
+            self.add_back_button()
 
         # Update campaign name from loaded
         self.campaign_name.text = self.campaign_view.campaign.name
+
+        # Add players
+        for player in self.campaign_view.campaign.party:
+            new_player_entry = EditableListEntry(player.name, player, None, None)
+            self.controls_layout.players_list.add_entry(new_player_entry)
 
         # Update controllers with values loaded from campaign
         self.controls_layout.map_editor_layout.update_from_map(self.campaign_view.map)
@@ -181,27 +353,38 @@ class NewCampaignScreen(Screen):
 
         # Add any loaded locations to self.controls_layout.locations_list
         for location in self.campaign_view.campaign.locations.values():
-            self.controls_layout.addLocationEntry(location)
+            self.controls_layout.add_location_entry(location)
+
+        # Add walls for display
+        for segment in self.campaign_view.map.walls:
+            for wall_x, wall_y in segment:
+                circle_x = wall_x * self.campaign_view.map.window.zoom - self.campaign_view.map.window.x
+                circle_y = wall_y * self.campaign_view.map.window.zoom - self.campaign_view.map.window.y
+                wall_dot = Ellipse(segments=3, size=(20, 20), pos=(circle_x, circle_y))
+                wall_dot.pos = (wall_dot.pos[0] - wall_dot.size[0] / 2, wall_dot.pos[1] - wall_dot.size[1] / 2)
+                self.walls[wall_dot] = (wall_x, wall_y)
+
+        # TODO: Add any lines between walls
 
         # Add musics for current location
         for music in self.campaign_view.campaign.current_location.music:
-            self.controls_layout.addMusicEntry(music, self.controls_layout.music_list)
+            self.controls_layout.add_music_entry(music, self.controls_layout.music_list)
         for combat_music in self.campaign_view.campaign.current_location.combat_music:
-            self.controls_layout.addMusicEntry(combat_music, self.controls_layout.combat_music_list)
+            self.controls_layout.add_music_entry(combat_music, self.controls_layout.combat_music_list)
 
-    def addBackButton(self):
+    def add_back_button(self):
         # Add back button to go back to higher location
         if self.location_back_button not in self.children:
             self.add_widget(self.location_back_button)
 
-    def toLocation(self, location: Location):
+    def to_location(self, location: Location):
         self.campaign_view.campaign.current_location = location
 
         self.controls_layout.map_editor_layout.name_input.text = location.name
 
         # Add back button to go back to higher location
         if location.parent is not None:
-            self.addBackButton()
+            self.add_back_button()
 
         # Update switches
         self.controls_layout.map_editor_layout.hidden_switch.active = self.campaign_view.map.hidden_tiles
@@ -211,7 +394,7 @@ class NewCampaignScreen(Screen):
     def edit_location_cb(self, instance: Button):
         parent: EditableListEntry = instance.parent
         location: Location = parent.thing
-        self.toLocation(location)
+        self.to_location(location)
         self.campaign_view.arrive(location, (0, 0))
 
     def delete_location_cb(self, instance: Button):
@@ -241,16 +424,16 @@ class MapEditorLayout(BoxLayout):
         self.map_file_layout.add_widget(self.map_file_button)
         self.add_widget(self.map_file_layout)
 
-        self.density_controller = LabeledIntInput("Box Size", self.setDensity, 0.5, 100, size_hint=(1, 0.08))
+        self.density_controller = LabeledIntInput("Box Size", self.set_density, 0.5, 100, size_hint=(1, 0.08))
         self.add_widget(self.density_controller)
-        self.xOffsetController = LabeledIntInput("X Offset", self.setXOffset, 1, 0, size_hint=(1, 0.08))
+        self.xOffsetController = LabeledIntInput("X Offset", self.set_x_offset, 1, 0, size_hint=(1, 0.08))
         self.add_widget(self.xOffsetController)
-        self.yOffsetController = LabeledIntInput("Y Offset", self.setYOffset, 1, 0, size_hint=(1, 0.08))
+        self.yOffsetController = LabeledIntInput("Y Offset", self.set_y_offset, 1, 0, size_hint=(1, 0.08))
         self.add_widget(self.yOffsetController)
 
-        self.xMarginController = LabeledIntInput("X Margin", self.setXMargin, 1, 1, size_hint=(1, 0.08))
+        self.xMarginController = LabeledIntInput("X Margin", self.set_x_margin, 1, 1, size_hint=(1, 0.08))
         self.add_widget(self.xMarginController)
-        self.yMarginController = LabeledIntInput("Y Margin", self.setYMargin, 1, 1, size_hint=(1, 0.08))
+        self.yMarginController = LabeledIntInput("Y Margin", self.set_y_margin, 1, 1, size_hint=(1, 0.08))
         self.add_widget(self.yMarginController)
 
         # hex-or-square: Switch
@@ -269,13 +452,21 @@ class MapEditorLayout(BoxLayout):
         self.hidden_switch_layout.add_widget(self.hidden_switch)
         self.add_widget(self.hidden_switch_layout)
 
+        # Add walls: Switch
+        self.walls_switch_layout = BoxLayout(orientation="horizontal", size_hint=(1, 0.08))
+        self.walls_switch_layout.add_widget(Label(text="Adding walls"))
+        self.walls_switch = Switch(active=False)
+        self.walls_switch.bind(active=self.walls_cb)
+        self.walls_switch_layout.add_widget(self.walls_switch)
+        self.add_widget(self.walls_switch_layout)
+
         self.hide_buttons_layout = BoxLayout(orientation="horizontal", size_hint=(1, 0.08))
         all_on_button = Button(text="All On")
-        all_on_button.bind(on_release=self.allOn)
+        all_on_button.bind(on_release=self.all_on)
         all_off_button = Button(text="All Off")
-        all_off_button.bind(on_release=self.allOff)
+        all_off_button.bind(on_release=self.all_off)
         invert_button = Button(text="Invert Tiles")
-        invert_button.bind(on_release=self.invertTiles)
+        invert_button.bind(on_release=self.invert_tiles)
         self.hide_buttons_layout.add_widget(all_on_button)
         self.hide_buttons_layout.add_widget(all_off_button)
         self.hide_buttons_layout.add_widget(invert_button)
@@ -283,36 +474,36 @@ class MapEditorLayout(BoxLayout):
     def on_text(self, instance: TextInput, value: str) -> None:
         self.screen.campaign_view.campaign.current_location.name = value
 
-    def allOn(self, instance):
+    def all_on(self, instance):
         for i in range(self.screen.campaign_view.map.grid.x):
             for j in range(self.screen.campaign_view.map.grid.y):
                 if (i, j) not in self.screen.campaign_view.map.grid.matrix:
                     self.screen.campaign_view.map.grid.flip_tile(i, j)
         self.screen.campaign_view.map.draw()
 
-    def allOff(self, instance):
+    def all_off(self, instance):
         for tile in self.screen.campaign_view.map.grid.matrix:
             self.screen.campaign_view.map.grid.flip_tile(*tile)
         self.screen.campaign_view.map.draw()
 
-    def invertTiles(self, instance):
+    def invert_tiles(self, instance):
         for i in range(self.screen.campaign_view.map.grid.x):
             for j in range(self.screen.campaign_view.map.grid.y):
                 self.screen.campaign_view.map.grid.flip_tile(i, j)
         self.screen.campaign_view.map.draw()
 
-    def update_from_map(self, map: Map):
-        self.map_file_label.text = os.path.basename(map.map_file)
-        self.density_controller.input.text = str(map.grid.pixel_density)
-        self.density_controller.value = map.grid.pixel_density
-        self.xOffsetController.input.text = str(map.grid.x_offset)
-        self.xOffsetController.value = map.grid.x_offset
-        self.yOffsetController.input.text = str(map.grid.y_offset)
-        self.yOffsetController.value = map.grid.y_offset
-        self.xMarginController.input.text = str(map.grid.x_margin)
-        self.xMarginController.value = map.grid.x_margin
-        self.yMarginController.input.text = str(map.grid.y_margin)
-        self.yMarginController.value = map.grid.y_margin
+    def update_from_map(self, map_arg: Map):
+        self.map_file_label.text = os.path.basename(map_arg.map_file)
+        self.density_controller.input.text = str(map_arg.grid.pixel_density)
+        self.density_controller.value = map_arg.grid.pixel_density
+        self.xOffsetController.input.text = str(map_arg.grid.x_offset)
+        self.xOffsetController.value = map_arg.grid.x_offset
+        self.yOffsetController.input.text = str(map_arg.grid.y_offset)
+        self.yOffsetController.value = map_arg.grid.y_offset
+        self.xMarginController.input.text = str(map_arg.grid.x_margin)
+        self.xMarginController.value = map_arg.grid.x_margin
+        self.yMarginController.input.text = str(map_arg.grid.y_margin)
+        self.yMarginController.value = map_arg.grid.y_margin
 
     def hex_switch_cb(self, instance: Switch, state: bool):
         if not self.screen.campaign_view.map:
@@ -324,6 +515,24 @@ class MapEditorLayout(BoxLayout):
             self.screen.campaign_view.map.to_square()
 
         self.screen.campaign_view.map.draw()
+
+    def walls_cb(self, instance: Switch, state: bool):
+        if state:
+            print("On")
+            # TODO: Remove current on_touch and set walls on_touch
+            self.screen.campaign_view.unbind(on_touch_down=self.screen.campaign_view.on_click)
+            self.screen.campaign_view.unbind(on_touch_up=self.screen.campaign_view.on_click_up)
+
+            self.screen.campaign_view.bind(on_touch_down=self.screen.wall_touch_down)
+            self.screen.campaign_view.bind(on_touch_up=self.screen.wall_touch_up)
+        else:
+            print("Off")
+            # TODO: Remove walls on_touch and set default on_touch
+            self.screen.campaign_view.unbind(on_touch_down=self.screen.wall_touch_down)
+            self.screen.campaign_view.unbind(on_touch_up=self.screen.wall_touch_up)
+
+            self.screen.campaign_view.bind(on_touch_down=self.screen.campaign_view.on_click)
+            self.screen.campaign_view.bind(on_touch_up=self.screen.campaign_view.on_click_up)
 
     def hidden_cb(self, instance: Switch, state: bool):
         if self.screen.campaign_view.map:
@@ -341,34 +550,34 @@ class MapEditorLayout(BoxLayout):
 
         self.screen.campaign_view.map.draw()
 
-    def setXOffset(self, value: float):
+    def set_x_offset(self, value: float):
         if self.screen.campaign_view.map is None:
             print("What?")
             return
         self.screen.campaign_view.map.grid.x_offset = value
         self.screen.campaign_view.map.draw()
 
-    def setYOffset(self, value: float):
+    def set_y_offset(self, value: float):
         if self.screen.campaign_view.map is None:
             return
         self.screen.campaign_view.map.grid.y_offset = value
         self.screen.campaign_view.map.draw()
 
-    def setXMargin(self, value: float):
+    def set_x_margin(self, value: float):
         if self.screen.campaign_view.map is None:
             return
         self.screen.campaign_view.map.grid.x_margin = value
         self.screen.campaign_view.map.update()
         self.screen.campaign_view.map.draw()
 
-    def setYMargin(self, value: float):
+    def set_y_margin(self, value: float):
         if self.screen.campaign_view.map is None:
             return
         self.screen.campaign_view.map.grid.y_margin = value
         self.screen.campaign_view.map.update()
         self.screen.campaign_view.map.draw()
 
-    def setDensity(self, value: float):
+    def set_density(self, value: float):
         if self.screen.campaign_view.map is None:
             return
         self.screen.campaign_view.map.grid.pixel_density = value
@@ -377,6 +586,10 @@ class MapEditorLayout(BoxLayout):
 
 
 class ControllerLayout(BoxLayout):
+    file_selection_dialog: FileDialog
+    new_x: int
+    new_y: int
+
     def __init__(self, screen: NewCampaignScreen, **kwargs):
         super().__init__(orientation="vertical", size_hint=(0.3, 1), **kwargs)
 
@@ -450,36 +663,39 @@ class ControllerLayout(BoxLayout):
             self.screen.campaign_view.bind(on_touch_down=self.screen.campaign_view.on_click)
 
             # File selection dialog
-            self.fileSelectDialog = FileDialog(
+            self.file_selection_dialog = FileDialog(
                 select_text="Select",
                 popup_title="Select New Location Map",
-                on_select=self.onNewLocationMapSelection,
+                on_select=self.on_new_location_map_selection,
                 path=os.path.expanduser("~"),
             )
-            self.fileSelectDialog.open_dialog(None)
+            self.file_selection_dialog.open_dialog(None)
 
-    def onNewLocationMapSelection(self, instance: Button):
-        locationMapFile = self.fileSelectDialog.textInput.text
-        self.fileSelectDialog.close_dialog(None)
-        map_name = os.path.basename(locationMapFile).split("/")[-1]
+    def on_new_location_map_selection(self, instance: Button):
+        location_map_file = self.file_selection_dialog.text_input.text
+        self.file_selection_dialog.close_dialog(None)
+        map_name = os.path.basename(location_map_file).split("/")[-1]
 
-        # TODO: Move map file to campaigns/files
+        # Move map file to campaigns/files
+        new_map_file = os.path.join(CAMP_FILE_DIR, map_name)
+        shutil.copy(location_map_file, new_map_file)
 
         current_location: Location = self.screen.campaign_view.campaign.current_location
 
         # Create new location instance
         new_location = Location(map_name, {})
-        new_location.set_map(locationMapFile)
+        new_location.set_map(new_map_file)
         new_location.parent = current_location.name
+        new_location.entrances[(self.new_x, self.new_y)] = (0, 0)
         current_location.transitions[(self.new_x, self.new_y)] = map_name
 
         self.screen.campaign_view.add_location(new_location, map_name)
 
-        self.screen.toLocation(new_location)
-        self.screen.campaign_view.arrive(new_location)
+        self.screen.to_location(new_location)
+        self.screen.campaign_view.arrive(new_location, (self.new_x, self.new_y))
 
         # Replace "Selecting location..." label with CollapseEntry instance for the new location
-        self.addLocationEntry(new_location)
+        self.add_location_entry(new_location)
 
     def on_new_player_select(self, instance: Button):
         # Add player to list of players in collapsable
@@ -493,7 +709,7 @@ class ControllerLayout(BoxLayout):
         dialog: NewPlayerDialog = instance.parent.parent
         dialog.close_dialog(None)
 
-    def addLocationEntry(self, location: Location):
+    def add_location_entry(self, location: Location):
         new_location_entry = EditableListEntry(
             f"{location.name}\n{os.path.basename(location.map.map_file)}",
             location,
@@ -505,58 +721,58 @@ class ControllerLayout(BoxLayout):
 
     def add_music_cb(self, instance: Button) -> Label:
         # File selection dialog
-        fileSelectDialog = FileDialog(
+        file_selection_dialog = FileDialog(
             select_text="Select",
             popup_title="Select Music File",
-            on_select=self.onNewMusicSelection,
+            on_select=self.on_new_music_selection,
             path=os.path.expanduser("~"),
         )
-        fileSelectDialog.open_dialog(None)
+        file_selection_dialog.open_dialog(None)
 
         return Label(text="Selecting music...")
 
     def add_combat_music_cb(self, instance: Button) -> Label:
         # File selection dialog
-        fileSelectDialog = FileDialog(
+        file_selection_dialog = FileDialog(
             select_text="Select",
             popup_title="Select New Combat Music",
-            on_select=self.onNewCombatMusicSelection,
+            on_select=self.on_new_combat_music_selection,
             path=os.path.expanduser("~"),
         )
-        fileSelectDialog.open_dialog(None)
+        file_selection_dialog.open_dialog(None)
 
         return Label(text="Selecting music...")
 
-    def onNewCombatMusicSelection(self, instance: Button):
+    def on_new_combat_music_selection(self, instance: Button):
         dialog: FileDialog = instance.parent.parent
-        musicFile = dialog.textInput.text
+        music_file = dialog.text_input.text
         dialog.close_dialog(None)
 
-        self.addMusicEntry(musicFile, self.combat_music_list)
+        self.add_music_entry(music_file, self.combat_music_list)
 
-        self.screen.campaign_view.add_combat_music(musicFile)
+        self.screen.campaign_view.add_combat_music(music_file)
 
-    def onNewMusicSelection(self, instance: Button):
+    def on_new_music_selection(self, instance: Button):
         dialog: FileDialog = instance.parent.parent
-        musicFile = dialog.textInput.text
+        music_file = dialog.text_input.text
         dialog.close_dialog(None)
 
-        self.addMusicEntry(musicFile, self.music_list)
+        self.add_music_entry(music_file, self.music_list)
 
-        self.screen.campaign_view.add_music(musicFile)
+        self.screen.campaign_view.add_music(music_file)
 
-    def addMusicEntry(self, musicFile: str, musicList: CollapseItem):
+    def add_music_entry(self, music_file: str, music_list: CollapseItem):
         delete = self.delete_combat_music_cb
-        if musicList == self.music_list:
+        if music_list == self.music_list:
             delete = self.delete_music_cb
 
         new_music_entry = EditableListEntry(
-            musicFile,
+            music_file,
             self.screen.campaign_view.campaign.current_location,
             None,
             delete,
         )
-        musicList.add_entry(new_music_entry)
+        music_list.add_entry(new_music_entry)
 
     def delete_music_cb(self, instance: Button) -> None:
         parent: EditableListEntry = instance.parent

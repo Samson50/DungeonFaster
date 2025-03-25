@@ -228,6 +228,10 @@ class MapView(FloatLayout):
         self.draw_party()
 
     def on_click(self, layout: FloatLayout, event: MotionEvent):
+        # One of the buttons is already responding to this event, ignore
+        if not self.collide_point(*event.pos) or self.on_button(*event.pos):
+            return
+
         if event.is_touch:
             self.mouse_x, self.mouse_y = event.pos
             event.grab(self)

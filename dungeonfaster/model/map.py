@@ -18,7 +18,7 @@ GRID_TYPE_HEX = "hex"
 class Map:
     image: Image
 
-    def __init__(self, map_file: os.PathLike):
+    def __init__(self, map_file: str):
         # TODO: Down-sample very large high-resolution maps when screens are small and zoom is low
 
         self.map_file = os.path.join(CAMP_FILE_DIR, map_file)
@@ -30,6 +30,7 @@ class Map:
         self.grid_type: str = GRID_TYPE_SQUARE
         self.points_of_interest: list[tuple[int, int]] = []
         self.drawn_poi: dict[tuple[int, int], Rectangle] = {}
+        self.walls: list[list[tuple[float, float]]] = []
 
         self.load_image()
         # self.tile: Image = Image(source="resources/map/highlight_grid.png")
@@ -66,6 +67,9 @@ class Map:
         self.hidden_tiles = load_json["hidden"]
         self.grid_type = load_json["grid_type"]
 
+        for segment in load_json.get("walls", []):
+            self.walls.append([eval(wall) for wall in segment])
+
         # Change from default (square) to hex if necessary
         if load_json["grid_type"] == GRID_TYPE_HEX:
             self.grid = HexGrid(window=self.window)
@@ -87,6 +91,10 @@ class Map:
         save_data["hidden"] = self.hidden_tiles
         save_data["grid_type"] = self.grid_type
         save_data["grid"] = self.grid.save()
+
+        save_data["walls"] = []
+        for segment in self.walls:
+            save_data["walls"].append([str(wall) for wall in segment])
 
         save_data["window_x"] = self.window.x
         save_data["window_y"] = self.window.y

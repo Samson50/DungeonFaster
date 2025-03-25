@@ -29,7 +29,7 @@ class Location:
         for entrance, position in location_data.get("entrances", {}).items():
             self.entrances[eval(entrance)] = eval(position)
 
-    def set_map(self, map_file: os.PathLike):
+    def set_map(self, map_file: str):
         self.map = Map(map_file=map_file)
         self.map.load_image()
 

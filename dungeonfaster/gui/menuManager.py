@@ -5,7 +5,6 @@ from kivy.uix.screenmanager import Screen, ScreenManager
 
 
 class MenuManager(ScreenManager):
-
     def __init__(self):
         super().__init__()
 
@@ -19,7 +18,7 @@ class MenuManager(ScreenManager):
 
         self.current = self.mainMenuScreen.name
 
-    def addBackButton(self, screen: Screen):
+    def add_back_button(self, screen: Screen):
         backButton = Button(
             text="<",
             pos_hint={"center_x": 0.1, "center_y": 0.9},
@@ -50,7 +49,6 @@ class MenuManager(ScreenManager):
 
 
 class MainMenuScreen(Screen):
-
     def __init__(self, manager: MenuManager, **kwargs):
         super().__init__(name="Menu")
 
@@ -84,12 +82,12 @@ class MainMenuScreen(Screen):
 
         playerButton = Button(
             text="Player",
-            pos_hint={"center_x": 0.5, "center_y":0.1},
+            pos_hint={"center_x": 0.5, "center_y": 0.1},
             size_hint=(0.2, 0.1),
         )
         layout.add_widget(playerButton)
         playerButton.bind(on_press=self.menuManager.toPlayerScreen)
-        
+
         self.add_widget(layout)
 
         self.menuManager.add_widget(self)
