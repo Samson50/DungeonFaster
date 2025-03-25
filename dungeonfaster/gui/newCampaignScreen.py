@@ -134,6 +134,12 @@ class NewCampaignScreen(Screen):
 
         self.draw_walls()
 
+    def wall_pos_to_map(self, pos: tuple[float, float]) -> tuple[float, float]:
+        wall_x, wall_y = pos
+        circle_x = wall_x / self.campaign_view.map.window.zoom - self.campaign_view.map.window.x
+        circle_y = wall_y / self.campaign_view.map.window.zoom - self.campaign_view.map.window.y
+        return (circle_x, circle_y)
+
     def draw_walls(self):
         for wall, wall_pos in self.walls.items():
             if wall == self.grabbed_wall:
@@ -145,21 +151,20 @@ class NewCampaignScreen(Screen):
 
             if wall not in self.campaign_view.map.window.surface.canvas.children:
                 self.campaign_view.map.window.surface.canvas.add(wall)
-            # else:
-            wall_x, wall_y = wall_pos
-            circle_x = wall_x / self.campaign_view.map.window.zoom - self.campaign_view.map.window.x
-            circle_y = wall_y / self.campaign_view.map.window.zoom - self.campaign_view.map.window.y
-            wall.pos = (circle_x, circle_y)
+
+            wall.pos = self.wall_pos_to_map(wall_pos)
             wall.pos = (wall.pos[0] - wall.size[0] / 2, wall.pos[1] - wall.size[1] / 2)
 
         # Draw lines in between walls
-        points = []
-        for wall in self.walls:
-            points.append(wall.pos[0] + wall.size[0] / 2)
-            points.append(wall.pos[1] + wall.size[1] / 2)
-        self.line.points = points
-        if self.line not in self.campaign_view.map.window.surface.canvas.children:
-            self.campaign_view.map.window.surface.canvas.add(self.line)
+        for line, segments in zip(self.lines, self.campaign_view.map.walls, strict=True):
+            points = []
+            for wall in segments:
+                x, y = self.wall_pos_to_map(wall)
+                points.append(x)
+                points.append(y)
+            line.points = points
+            if line not in self.campaign_view.map.window.surface.canvas.children:
+                self.campaign_view.map.window.surface.canvas.add(line)
 
     def on_touch_move(self, touch: MotionEvent):
         if self.grabbed_wall:
@@ -269,9 +274,11 @@ class NewCampaignScreen(Screen):
             for segments in self.campaign_view.map.walls:
                 for segment in segments:
                     if wall == segment:
-                        segments.append(wall)
+                        segments.append((wall_x, wall_y))
                         break
         else:
+            # Add new Line to self.lines
+            self.lines.append(Line(points=[], width=2))
             self.campaign_view.map.walls.append([(wall_x, wall_y)])
 
         self.active_wall = wall_dot
@@ -361,6 +368,7 @@ class NewCampaignScreen(Screen):
 
         # Add walls for display
         for segment in self.campaign_view.map.walls:
+            points = []
             for wall_x, wall_y in segment:
                 circle_x = wall_x * self.campaign_view.map.window.zoom - self.campaign_view.map.window.x
                 circle_y = wall_y * self.campaign_view.map.window.zoom - self.campaign_view.map.window.y
@@ -368,7 +376,10 @@ class NewCampaignScreen(Screen):
                 wall_dot.pos = (wall_dot.pos[0] - wall_dot.size[0] / 2, wall_dot.pos[1] - wall_dot.size[1] / 2)
                 self.walls[wall_dot] = (wall_x, wall_y)
 
-        # TODO: Add any lines between walls
+                points.append(wall_dot.pos[0] + wall_dot.size[0] / 2)
+                points.append(wall_dot.pos[1] + wall_dot.size[1] / 2)
+            # Add any lines between walls
+            self.lines.append(Line(points=points, width=2))
 
         # Add musics for current location
         for music in self.campaign_view.campaign.current_location.music:
