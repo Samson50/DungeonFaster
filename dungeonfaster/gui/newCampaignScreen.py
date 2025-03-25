@@ -136,10 +136,10 @@ class NewCampaignScreen(Screen):
 
     def draw_walls(self):
         for wall, wall_pos in self.walls.items():
-            if wall == self.active_wall:
-                wall.size = (40, 40)
-            elif wall == self.grabbed_wall:
+            if wall == self.grabbed_wall:
                 wall.size = (60, 60)
+            elif wall == self.active_wall:
+                wall.size = (40, 40)
             else:
                 wall.size = (20, 20)
 
@@ -152,7 +152,7 @@ class NewCampaignScreen(Screen):
             wall.pos = (circle_x, circle_y)
             wall.pos = (wall.pos[0] - wall.size[0] / 2, wall.pos[1] - wall.size[1] / 2)
 
-        # Draw actual wall
+        # Draw lines in between walls
         points = []
         for wall in self.walls:
             points.append(wall.pos[0] + wall.size[0] / 2)
@@ -172,6 +172,13 @@ class NewCampaignScreen(Screen):
             wall_dot.pos = (cursor_x - wall_dot.size[0] / 2, cursor_y - wall_dot.size[1] / 2)
             self.walls[wall_dot] = (wall_x, wall_y)
         self.draw_walls()
+
+    def collides_with_wall(self, pos: tuple[float, float]) -> Ellipse:
+        for wall in self.walls:
+            if self.wall_collide(pos, wall):
+                return wall
+
+        return None
 
     def wall_collide(self, pos: tuple[float, float], wall: Ellipse) -> bool:
         wall_x, wall_y = wall.pos
@@ -194,15 +201,16 @@ class NewCampaignScreen(Screen):
         wall.pos = (circle_x - wall.size[0] / 2, circle_y - wall.size[1] / 2)
 
     def wall_touch_down(self, layout: FloatLayout, event: MotionEvent):
-        for wall, wall_pos in self.walls.items():
-            if self.wall_collide(event.pos, wall):
-                self.grabbed_wall = wall
-                self.grabbed_wall.size = (60, 60)
-                wall_x, wall_y = wall_pos
-                circle_x = wall_x / self.campaign_view.map.window.zoom - self.campaign_view.map.window.x
-                circle_y = wall_y / self.campaign_view.map.window.zoom - self.campaign_view.map.window.y
-                wall.pos = (circle_x - wall.size[0] / 2, circle_y - wall.size[1] / 2)
-                return
+        collission = self.collides_with_wall(event.pos)
+        if self.collides_with_wall(event.pos):
+            wall_pos = self.walls[collission]
+            self.grabbed_wall = collission
+            self.grabbed_wall.size = (60, 60)
+            wall_x, wall_y = wall_pos
+            circle_x = wall_x / self.campaign_view.map.window.zoom - self.campaign_view.map.window.x
+            circle_y = wall_y / self.campaign_view.map.window.zoom - self.campaign_view.map.window.y
+            collission.pos = (circle_x - collission.size[0] / 2, circle_y - collission.size[1] / 2)
+            return
 
         if self.grabbed_wall:
             self.grabbed_wall = None
@@ -213,65 +221,61 @@ class NewCampaignScreen(Screen):
         if self.campaign_view.moved:
             return
 
+        if event.grab_current:
+            return
+
         # If current grabbing wall
         if self.grabbed_wall:
-            print("has grab")
-            # self.grabbed_wall.size = (20, 20)
             wall = self.grabbed_wall
             wall_x, wall_y = self.walls[self.grabbed_wall]
             self.grabbed_wall = None
             circle_x = wall_x / self.campaign_view.map.window.zoom - self.campaign_view.map.window.x
             circle_y = wall_y / self.campaign_view.map.window.zoom - self.campaign_view.map.window.y
             wall.pos = (circle_x - wall.size[0] / 2, circle_y - wall.size[1] / 2)
-            # wall.size = (20, 20)
             self.draw_walls()
             if self.wall_moved:
-                print("moved")
                 self.wall_moved = False
                 return
 
+        collission = self.collides_with_wall(event.pos)
+        # If we're clicking on a wall and no wall is currently active
         if not self.active_wall:
-            for wall in self.walls:
-                if self.wall_collide(event.pos, wall):
-                    self.active_wall = wall
-                    print("set active")
-                    self.draw_walls()
-                    return
+            if collission:
+                self.active_wall = collission
+                self.draw_walls()
+                return
+        # If there's already an active wall and we're clicking on a wall
+        elif collission:
+            if self.active_wall == collission:
+                self.active_wall = None
+                self.draw_walls()
+                return
+            self.active_wall = collission
+            self.draw_walls()
+            return
+
+        cursor_x, cursor_y = event.pos
+        wall_x: float = (self.campaign_view.map.window.x + cursor_x) * self.campaign_view.map.window.zoom
+        wall_y: float = (self.campaign_view.map.window.y + cursor_y) * self.campaign_view.map.window.zoom
+
+        wall_dot = Ellipse(segments=3, size=(20, 20), pos=(cursor_x, cursor_y))
+        wall_dot.pos = (wall_dot.pos[0] - wall_dot.size[0] / 2, wall_dot.pos[1] - wall_dot.size[1] / 2)
+        self.walls[wall_dot] = (wall_x, wall_y)
+        self.campaign_view.map_layout.canvas.add(wall_dot)
+
+        # Get active wall segment by current active wall
+        if self.active_wall:
+            wall = self.walls[self.active_wall]
+            for segments in self.campaign_view.map.walls:
+                for segment in segments:
+                    if wall == segment:
+                        segments.append(wall)
+                        break
         else:
-            for wall in self.walls:
-                if self.wall_collide(event.pos, wall):
-                    self.active_wall = wall
-                    return
+            self.campaign_view.map.walls.append([(wall_x, wall_y)])
 
-        if self.active_wall and self.wall_collide(event.pos, self.active_wall):
-            # self.active_wall.size = (20, 20)
-            self.active_wall = None
-        else:
-            for wall in self.walls:
-                if self.wall_collide(event.pos, wall):
-                    self.draw_walls()
-                    return
-            # Place new wall
-            cursor_x, cursor_y = event.pos
-            wall_x: float = (self.campaign_view.map.window.x + cursor_x) * self.campaign_view.map.window.zoom
-            wall_y: float = (self.campaign_view.map.window.y + cursor_y) * self.campaign_view.map.window.zoom
+        self.active_wall = wall_dot
 
-            wall_dot = Ellipse(segments=3, size=(20, 20), pos=(cursor_x, cursor_y))
-            wall_dot.pos = (wall_dot.pos[0] - wall_dot.size[0] / 2, wall_dot.pos[1] - wall_dot.size[1] / 2)
-            self.walls[wall_dot] = (wall_x, wall_y)
-            self.campaign_view.map_layout.canvas.add(wall_dot)
-
-            self.campaign_view.map.walls.append((wall_x, wall_y))
-
-            # if self.active_wall:
-            #     print("active set")
-            # self.active_wall.size = (20, 20)
-
-            print("new is active")
-            self.active_wall = wall_dot
-            # self.active_wall.size = (40, 40)
-
-        # self.campaign_view.on_click_up(layout, event)
         self.draw_walls()
 
     def wall_move(self):
