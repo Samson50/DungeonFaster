@@ -13,6 +13,8 @@ from kivy.uix.textinput import TextInput
 
 from dungeonfaster.model.player import Player
 
+HOME_DIR = os.path.expanduser("~")
+
 
 class IconButton(Button):
     def __init__(self, source, **kwargs):
@@ -83,7 +85,7 @@ class CollapseItem(AccordionItem):
         self.list_layout.add_widget(self.new_item_button)
 
         # Add placeholder items
-        for x in range(self.initial_children - 1):
+        for _ in range(self.initial_children - 1):
             self.list_layout.add_widget(Label(text="[...]"))
 
         self.scroll_view.add_widget(self.list_layout)
@@ -286,7 +288,7 @@ class FileDialog(SimpleDialog):
         select_text="Select",
         popup_title="Select File",
         on_select=None,
-        path=os.path.expanduser("~"),
+        path=HOME_DIR,
         **kwargs,
     ):
         super().__init__(

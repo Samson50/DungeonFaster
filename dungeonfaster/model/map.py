@@ -50,8 +50,8 @@ class Map:
     def load_image(self):
         self.image = Image(source=self.map_file)
         (self.width, self.height) = self.image.texture.size
-        if self.grid.matrix is None:
-            self.grid.update(self.width, self.height)
+        # if self.grid.matrix is None:
+        self.grid.update(self.width, self.height)
 
     def get_zoom_for_surface(self, surface: Widget):
         self.window.surface = surface
@@ -185,10 +185,9 @@ class Map:
 
                 elif poi in self.drawn_poi:
                     # Remove the PoI from canvas and tracking list
-                    try:
+                    drawn = self.drawn_poi[poi]
+                    if drawn in self.window.surface.canvas.children:
                         self.window.surface.canvas.remove(self.drawn_poi[poi])
-                    except:
-                        pass
                     del self.drawn_poi[poi]
 
     def draw_tiles(self):

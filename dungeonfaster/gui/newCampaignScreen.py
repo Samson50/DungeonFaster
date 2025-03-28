@@ -11,8 +11,6 @@ from kivy.uix.label import Label
 from kivy.uix.screenmanager import Screen
 from kivy.uix.switch import Switch
 from kivy.uix.textinput import TextInput
-from numpy import gradient
-from sympy import false
 
 from dungeonfaster.gui.campaignView import CampaignView
 from dungeonfaster.gui.menuManager import MenuManager
@@ -101,9 +99,9 @@ class NewCampaignScreen(Screen):
         self.campaign_view = CampaignView(self, size_hint=(0.7, 1))
         self.campaign_view.bind(on_touch_down=self.campaign_view.on_click)
         self.campaign_view.bind(on_touch_up=self.campaign_view.on_click_up)
-        self.getMapButton = Button(text="Select Overworld Map")
-        self.getMapButton.bind(on_release=self.select_overworld_map_dialog)
-        self.campaign_view.add_widget(self.getMapButton)
+        self.get_map_button = Button(text="Select Overworld Map")
+        self.get_map_button.bind(on_release=self.select_overworld_map_dialog)
+        self.campaign_view.add_widget(self.get_map_button)
 
         # Override normal map draw
         self.campaign_view.draw = self.draw
@@ -222,13 +220,7 @@ class NewCampaignScreen(Screen):
 
         self.campaign_view.on_click(layout, event)
 
-    def wall_touch_up(self, layout: FloatLayout, event: MotionEvent):
-        if self.campaign_view.moved:
-            return
-
-        if event.grab_current:
-            return
-
+    def handle_wall_up(self, event: MotionEvent):
         # If current grabbing wall
         if self.grabbed_wall:
             wall = self.grabbed_wall
@@ -237,7 +229,6 @@ class NewCampaignScreen(Screen):
             circle_x = wall_x / self.campaign_view.map.window.zoom - self.campaign_view.map.window.x
             circle_y = wall_y / self.campaign_view.map.window.zoom - self.campaign_view.map.window.y
             wall.pos = (circle_x - wall.size[0] / 2, circle_y - wall.size[1] / 2)
-            self.draw_walls()
             if self.wall_moved:
                 self.wall_moved = False
                 return
@@ -247,16 +238,13 @@ class NewCampaignScreen(Screen):
         if not self.active_wall:
             if collission:
                 self.active_wall = collission
-                self.draw_walls()
                 return
         # If there's already an active wall and we're clicking on a wall
         elif collission:
             if self.active_wall == collission:
                 self.active_wall = None
-                self.draw_walls()
                 return
             self.active_wall = collission
-            self.draw_walls()
             return
 
         cursor_x, cursor_y = event.pos
@@ -283,6 +271,15 @@ class NewCampaignScreen(Screen):
 
         self.active_wall = wall_dot
 
+    def wall_touch_up(self, layout: FloatLayout, event: MotionEvent):
+        if self.campaign_view.moved:
+            return
+
+        if event.grab_current:
+            return
+
+        self.handle_wall_up(event)
+
         self.draw_walls()
 
     def wall_move(self):
@@ -302,7 +299,7 @@ class NewCampaignScreen(Screen):
     def save_overworld_map(self, instance):
         # Set overworld map file
         overworld_map_file = self.overworld_map_dialog.text_input.text
-        self.campaign_view.remove_widget(self.getMapButton)
+        self.campaign_view.remove_widget(self.get_map_button)
         self.overworld_map_dialog.close_dialog(None)
         # TODO: Move map file to campaigns/files
 
@@ -337,7 +334,7 @@ class NewCampaignScreen(Screen):
 
         self.campaign_view.load(load_file)
 
-        self.campaign_view.remove_widget(self.getMapButton)
+        self.campaign_view.remove_widget(self.get_map_button)
 
         # If location.parent, add back button
         if self.campaign_view.campaign.current_location.parent is not None:
@@ -533,16 +530,14 @@ class MapEditorLayout(BoxLayout):
 
     def walls_cb(self, instance: Switch, state: bool):
         if state:
-            print("On")
-            # TODO: Remove current on_touch and set walls on_touch
+            # Remove current on_touch and set walls on_touch
             self.screen.campaign_view.unbind(on_touch_down=self.screen.campaign_view.on_click)
             self.screen.campaign_view.unbind(on_touch_up=self.screen.campaign_view.on_click_up)
 
             self.screen.campaign_view.bind(on_touch_down=self.screen.wall_touch_down)
             self.screen.campaign_view.bind(on_touch_up=self.screen.wall_touch_up)
         else:
-            print("Off")
-            # TODO: Remove walls on_touch and set default on_touch
+            # Remove walls on_touch and set default on_touch
             self.screen.campaign_view.unbind(on_touch_down=self.screen.wall_touch_down)
             self.screen.campaign_view.unbind(on_touch_up=self.screen.wall_touch_up)
 
@@ -693,7 +688,8 @@ class ControllerLayout(BoxLayout):
 
         # Move map file to campaigns/files
         new_map_file = os.path.join(CAMP_FILE_DIR, map_name)
-        shutil.copy(location_map_file, new_map_file)
+        if new_map_file != location_map_file:
+            shutil.copy(location_map_file, new_map_file)
 
         current_location: Location = self.screen.campaign_view.campaign.current_location
 

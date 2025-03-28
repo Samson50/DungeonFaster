@@ -1,6 +1,6 @@
-from abc import ABC, abstractmethod
 import math
 import os
+from abc import ABC, abstractmethod
 
 from kivy.graphics import Rectangle
 from kivy.uix.image import Image
@@ -110,11 +110,8 @@ class Grid(ABC):
         tile = self.image_matrix.get((x, y), None)
 
         if (x, y) in self.matrix:
-            try:
+            if tile in self.window.surface.canvas.children:
                 self.window.surface.canvas.remove(tile)
-            except:
-                # Ignore attempts to remove tiles not currently displayed
-                pass
             self.matrix.remove((x, y))
             self.image_matrix.pop((x, y), None)
 

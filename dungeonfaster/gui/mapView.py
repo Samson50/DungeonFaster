@@ -197,7 +197,6 @@ class MapView(FloatLayout):
 
         for token in self.party_tiles:
             if cursor_inedx == token.index:
-                print("TRUE!")
                 self.active_tile = token
                 return True
 

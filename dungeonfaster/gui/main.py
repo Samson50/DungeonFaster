@@ -15,13 +15,13 @@ from dungeonfaster.gui.runCampaignScreen import RunCampaignScreen
 
 class DungeonFasterApp(App):
     def build(self):
-        menuManager = MenuManager()
-        menuManager.newCampaignScreen = NewCampaignScreen(menuManager)
-        menuManager.add_back_button(menuManager.newCampaignScreen)
-        menuManager.loadCampaignScreen = LoadCampaignScreen(menuManager)
-        menuManager.add_back_button(menuManager.loadCampaignScreen)
-        menuManager.runCampaignScreen = RunCampaignScreen(menuManager)
-        menuManager.playerScreen = PlayerScreen(menuManager)
+        menu_manager = MenuManager()
+        menu_manager.newCampaignScreen = NewCampaignScreen(menu_manager)
+        menu_manager.add_back_button(menu_manager.newCampaignScreen)
+        menu_manager.loadCampaignScreen = LoadCampaignScreen(menu_manager)
+        menu_manager.add_back_button(menu_manager.loadCampaignScreen)
+        menu_manager.runCampaignScreen = RunCampaignScreen(menu_manager)
+        menu_manager.playerScreen = PlayerScreen(menu_manager)
         # TODO: Exit campaign button?
 
-        return menuManager
+        return menu_manager

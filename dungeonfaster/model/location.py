@@ -1,12 +1,11 @@
-import os
-
 from kivy.uix.widget import Widget
-from kivy.core.audio import SoundLoader, Sound
 
 from dungeonfaster.model.map import Map
 
 
 class Location:
+    map: Map
+
     def __init__(self, name: str, location_data: dict):
         self.parent: str = location_data.get("parent", "overworld")
         if not self.parent and name != "overworld":
@@ -14,7 +13,7 @@ class Location:
         self.name: str = name
         self.type: str = location_data.get("type", "group")
         self.map_data: dict = location_data.get("map", {})
-        self.map: Map = Map(self.map_data["map_file"])
+        # self.map: Map = Map(self.map_data["map_file"])
         self.position: tuple[int, int] = location_data.get("position", (0, 0))
         self.music: list[str] = location_data.get("music", [])
         self.combat_music: list[str] = location_data.get("combat_music", [])
@@ -50,6 +49,7 @@ class Location:
         return save_dict
 
     def load(self, surface: Widget) -> None:
+        self.map = Map(self.map_data["map_file"])
         self.map.load(self.map_data, surface)
 
         # for song_file in load_json["music"]:
