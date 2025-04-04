@@ -1,4 +1,5 @@
 import os
+from datetime import datetime
 from typing import TYPE_CHECKING
 
 from kivy.core.audio import Sound, SoundLoader
@@ -101,6 +102,7 @@ class CampaignView(MapView):
             pos_hint={"center_x": 0.8, "y": 0.1},
         )
         self.save_button = Button(text="save", size_hint=(0.1, 0.05), pos_hint={"x": 0.85, "y": 0.9})
+        self.save_button.bind(on_press=self.on_click_save)
 
         self.adjacent: list[Rectangle] | None = None
         self.campaign: Campaign = Campaign()
@@ -142,6 +144,12 @@ class CampaignView(MapView):
 
     def on_move_party_button(self, instance: Button) -> None:
         self.map_clicked = self.location_selected
+
+    def on_click_save(self, instance: Button) -> None:
+        save_file = os.path.join(
+            CAMPAIGNS_DIR, f"{self.campaign.name}-{datetime.now().strftime('%Y%m%dT-%H%M%SZ')}.json"
+        )
+        self.save(save_file)
 
     def location_selected(self, x: int, y: int) -> None:
         self.move_party(x, y)
