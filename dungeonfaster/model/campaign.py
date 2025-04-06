@@ -33,13 +33,13 @@ class Campaign:
 
         json_data = json.dumps(data_dict, indent=4, separators=(",", ": "))
 
-        with open(out_path, "w") as out_file:
+        with open(out_path, "w", encoding="utf-8") as out_file:
             out_file.write(json_data)
 
     def load(self, load_path: str | os.PathLike, surface: Widget):
         self.path = load_path
 
-        with open(load_path, "r") as load_file:
+        with open(load_path, encoding="utf-8") as load_file:
             string_data = load_file.read()
             load_data = json.loads(string_data)
 

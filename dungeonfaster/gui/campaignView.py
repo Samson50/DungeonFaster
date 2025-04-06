@@ -125,7 +125,7 @@ class CampaignView(MapView):
         self.server = CampaignServer()
 
     def start_server(self):
-        self.server.start_server(self.campaign)
+        self.server.start_server(self)
 
     def add_controls(self) -> None:
         """Add buttons for DM control:

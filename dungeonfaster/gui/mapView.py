@@ -9,6 +9,7 @@ from kivy.uix.screenmanager import Screen
 
 from dungeonfaster.model.campaign import Campaign
 from dungeonfaster.model.location import Location
+from dungeonfaster.model.player import Player
 
 if TYPE_CHECKING:
     from dungeonfaster.model.map import Map
@@ -139,6 +140,25 @@ class MapView(FloatLayout):
 
         self.draw()
 
+    def populate_tiles(self, location: Location):
+        if location.type == "group":
+            for tile in self.party_tiles:
+                self.map_layout.canvas.remove(tile)
+
+        elif location.type == "individual":
+            for player in self.campaign.party:
+                player_rect = PlayerRect(
+                    player.name, player.position, source=os.path.join(CAMPAIGNS_DIR, "files", player.image)
+                )
+                self.map_layout.canvas.add(player_rect)
+
+                # pylint: disable=attribute-defined-outside-init
+                player_rect.pos = self.map.grid.tile_pos_from_index(*player.position)
+                # pylint: disable=attribute-defined-outside-init
+                player_rect.size = self.map.grid.tile_size
+
+                self.party_tiles.append(player_rect)
+
     def leave(self) -> Location:
         location = self.campaign.current_location
         self.selected = None
@@ -159,23 +179,7 @@ class MapView(FloatLayout):
         self.selected = None
 
         if self.campaign.current_location.type != location.type:
-            if location.type == "group":
-                for tile in self.party_tiles:
-                    self.map_layout.canvas.remove(tile)
-
-            elif location.type == "individual":
-                for player in self.campaign.party:
-                    player_rect = PlayerRect(
-                        player.name, player.position, source=os.path.join(CAMPAIGNS_DIR, "files", player.image)
-                    )
-                    self.map_layout.canvas.add(player_rect)
-
-                    # pylint: disable=attribute-defined-outside-init
-                    player_rect.pos = self.map.grid.tile_pos_from_index(*player.position)
-                    # pylint: disable=attribute-defined-outside-init
-                    player_rect.size = self.map.grid.tile_size
-
-                    self.party_tiles.append(player_rect)
+            self.populate_tiles(location)
 
         self.campaign.current_location = location
         self.campaign.position = location.entrances.get(from_pos, (0, 0))
@@ -311,3 +315,20 @@ class MapView(FloatLayout):
         self.map.window.zoom *= ZOOM_FACTOR
 
         self._by_zoom(old_zoom, event)
+
+    def update_player_pos(self, player: Player, pos: tuple[float, float]):
+        new_x, new_y = pos
+
+        player_rect = next(rect for rect in self.party_tiles if rect.name == player.name)
+
+        icon_width, icon_height = self.map.grid.tile_size
+
+        new_x *= self.map.window.zoom
+        new_y *= self.map.window.zoom
+
+        pos = (new_x - self.map.window.x - icon_width / 2, new_y - self.map.window.y - icon_height / 2)
+
+        player_rect.pos = pos
+        player_rect.size = (icon_width, icon_height)
+
+        self.draw()

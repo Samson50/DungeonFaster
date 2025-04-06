@@ -176,10 +176,12 @@ class LabeledIntInput(BoxLayout):
 
 
 class LabeledTextInput(BoxLayout):
-    def __init__(self, text: str, on_text, **kwargs):
+    def __init__(self, text: str, on_text, default_text=None, **kwargs):
         super().__init__(orientation="horizontal", **kwargs)
 
         self.input_text = TextInput(size_hint=(0.7, 1))
+        if default_text:
+            self.input_text.text = default_text
         self.input_text.bind(text=on_text)
         self.input_label = Label(text=text, size_hint=(0.3, 1))
         self.add_widget(self.input_label)

@@ -1,15 +1,14 @@
-
 import os
 import socket
 import threading
-from select import epoll, EPOLLIN, EPOLLHUP
+from select import EPOLLHUP, EPOLLIN, epoll
 
-from dungeonfaster.gui.campaignView import CampaignView
 from dungeonfaster.gui.playerView import PlayerView
 from dungeonfaster.model.campaign import Campaign
 
 USERS_DIR = os.path.join(os.environ["DUNGEONFASTER_PATH"], "users")
 RECV_SIZE = 256
+
 
 class CampaignClient:
     campaign: Campaign
@@ -17,10 +16,14 @@ class CampaignClient:
     server: socket.socket
     thread: threading.Thread
 
-    def __init__(self, player_view: PlayerView):
+    established: bool
+
+    def __init__(self, player_view: PlayerView, name: str):
         self.established = False
         self.running = False
+
         self.player_view = player_view
+        self.username = name
         # TODO: Add on_update function arg to Campaign to update parent
 
     def start_client(self, address: tuple[str, int]):
@@ -31,10 +34,8 @@ class CampaignClient:
         self.thread.start()
 
     def _run_client(self, addr: str, port: int):
-
         self.sock.connect((addr, port))
         self._establish_session()
-        
 
         with epoll(sizehint=5) as poller:
             poller.register(self.sock, EPOLLIN | EPOLLHUP)
@@ -49,13 +50,12 @@ class CampaignClient:
                         if event == EPOLLHUP:
                             self._shutdown()
 
-
     def _establish_session(self):
-        username = "user1" # TODO: As input
-        campaign_path = os.path.join(USERS_DIR, f"{username}.json")
+        campaign_path = os.path.join(USERS_DIR, f"{self.username}.json")
+        print(f"establish {campaign_path}")
 
         # Send username and password
-        self.sock.send(f"{username}:password".encode())
+        self.sock.send(f"{self.username}:password".encode())
 
         # Receive campaign json from server
         self._receive_campaign(campaign_path)
@@ -63,18 +63,24 @@ class CampaignClient:
         self.established = True
 
     def _receive_campaign(self, campaign_path):
-        
-        user_file = open(campaign_path, "wb")
-
-        buf = self.sock.recv(RECV_SIZE)
-        while len(buf) == RECV_SIZE:
-            user_file.write(buf)
+        with open(campaign_path, "wb") as user_file:
             buf = self.sock.recv(RECV_SIZE)
-        user_file.write(buf)
+            total = 0
+            while len(buf) == RECV_SIZE:
+                user_file.write(buf)
+                buf = self.sock.recv(RECV_SIZE)
+                total += len(buf)
 
-        user_file.close()
+            if total == 0:
+                print("closed by server")
+                self.running = False
+                return
 
-        # TODO: Receive any missing files
+            user_file.write(buf)
+
+            user_file.close()
+
+            # TODO: Receive any missing files
 
     def _receive_update(self, sock: socket.socket):
         pass

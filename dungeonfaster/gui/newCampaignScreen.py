@@ -13,6 +13,7 @@ from kivy.uix.switch import Switch
 from kivy.uix.textinput import TextInput
 
 from dungeonfaster.gui.campaignView import CampaignView
+from dungeonfaster.gui.dialogs import NPCDialog
 from dungeonfaster.gui.menuManager import MenuManager
 from dungeonfaster.gui.utilities import (
     CollapseItem,
@@ -635,6 +636,10 @@ class ControllerLayout(BoxLayout):
         self.music_list = CollapseItem("Add Music", self.add_music_cb, title="Music")
         self.accordion.add_widget(self.music_list)
 
+        # NPCs
+        self.npc_list = CollapseItem("Add NPC", self.add_npc_cb, title="NPCs")
+        self.accordion.add_widget(self.npc_list)
+
         self.combat_music_list = CollapseItem("Add Combat Music", self.add_combat_music_cb, title="Combat Music")
         self.accordion.add_widget(self.combat_music_list)
 
@@ -771,6 +776,26 @@ class ControllerLayout(BoxLayout):
         self.add_music_entry(music_file, self.music_list)
 
         self.screen.campaign_view.add_music(music_file)
+
+    def add_npc_cb(self, insatnce: Button):
+        # NPC Creation Dialog
+        npc_selection_dialog = NPCDialog(
+            self.on_new_npc_selection,
+            select_text="Select",
+            popup_title="Select New NPC",
+        )
+        npc_selection_dialog.open_dialog(None)
+
+        return Label(text="Selecting NPC...")
+
+    def on_new_npc_selection(self, instance: Button):
+        dialog: NPCDialog = instance.parent.parent
+
+        # TODO: Add the npc
+        # new_npc: NPC = dialog.npc
+        print("WIP")
+
+        dialog.close_dialog(None)
 
     def add_music_entry(self, music_file: str, music_list: CollapseItem):
         delete = self.delete_combat_music_cb

@@ -22,7 +22,7 @@ class LoadCampaignEntry(BoxLayout):
 
         # Load from campaign file
         campaign_path = os.path.join(CAMPAIGNS_DIR, campaign_path)
-        with open(campaign_path) as campaign_file:
+        with open(campaign_path, encoding="utf-8") as campaign_file:
             string_data = campaign_file.read()
             load_data = json.loads(string_data)
             campaign_name = load_data["name"]
