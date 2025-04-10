@@ -3,14 +3,15 @@ import socket
 import threading
 from select import EPOLLHUP, EPOLLIN, epoll
 
-from dungeonfaster.gui.playerView import PlayerView
+from dungeonfaster.gui.mapView import MapView
 from dungeonfaster.model.campaign import Campaign
+from dungeonfaster.networking.comms import Comms
 
 USERS_DIR = os.path.join(os.environ["DUNGEONFASTER_PATH"], "users")
 RECV_SIZE = 256
 
 
-class CampaignClient:
+class CampaignClient(Comms):
     campaign: Campaign
     sock: socket.socket
     server: socket.socket
@@ -18,7 +19,7 @@ class CampaignClient:
 
     established: bool
 
-    def __init__(self, player_view: PlayerView, name: str):
+    def __init__(self, player_view: MapView, name: str):
         self.established = False
         self.running = False
 
@@ -45,20 +46,21 @@ class CampaignClient:
 
                 for fd, event in events:
                     if fd == self.sock.fileno():
-                        if event == EPOLLIN:
+                        if event & EPOLLIN:
                             self._receive_update(self.sock)
-                        if event == EPOLLHUP:
+                        if event & EPOLLHUP:
                             self._shutdown()
 
     def _establish_session(self):
         campaign_path = os.path.join(USERS_DIR, f"{self.username}.json")
-        print(f"establish {campaign_path}")
 
         # Send username and password
         self.sock.send(f"{self.username}:password".encode())
 
         # Receive campaign json from server
         self._receive_campaign(campaign_path)
+
+        self.message_buffers[self.sock.fileno()] = b""
 
         self.established = True
 
@@ -83,10 +85,25 @@ class CampaignClient:
             # TODO: Receive any missing files
 
     def _receive_update(self, sock: socket.socket):
-        pass
+        updates = self._receive(sock)
+        for update in updates:
+            message: list[str] = update.split(":")
 
-    def send_update(self, update: str):
-        pass
+            command = message[0]
 
-    def _shutdown(self):
+            if command == "POS":
+                player: str = message[1]
+                pos: tuple[float, float] = eval(message[2])
+                # print(f"Updated for {player}: {pos}")
+                self.player_view.receive_player_pos(player, pos)
+            if command == "INDEX":
+                player: str = message[1]
+                index: tuple[int, int] = eval(message[2])
+                # print(f"Updated for {player}: {pos}")
+                self.player_view.receive_player_index(player, index)
+
+    def send_update(self, message: str):
+        self.sock.send(message.encode() + b"|")
+
+    def stop(self):
         pass

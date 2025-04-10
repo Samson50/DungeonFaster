@@ -1,6 +1,7 @@
 import os
 from typing import TYPE_CHECKING
 
+from kivy.clock import mainthread
 from kivy.core.window import Window, WindowBase
 from kivy.graphics import Rectangle
 from kivy.input.motionevent import MotionEvent
@@ -9,7 +10,7 @@ from kivy.uix.screenmanager import Screen
 
 from dungeonfaster.model.campaign import Campaign
 from dungeonfaster.model.location import Location
-from dungeonfaster.model.player import Player
+from dungeonfaster.networking.comms import Comms
 
 if TYPE_CHECKING:
     from dungeonfaster.model.map import Map
@@ -29,6 +30,7 @@ class PlayerRect(Rectangle):
 
 class MapView(FloatLayout):
     campaign: Campaign
+    comms: Comms
 
     def __init__(self, screen: Screen, **kwargs):
         super().__init__(**kwargs)
@@ -49,6 +51,7 @@ class MapView(FloatLayout):
 
         self.party_tiles: list[PlayerRect] = []
         self.active_tile: PlayerRect | None = None
+        self.updated_tile: PlayerRect | None = None
 
         self.map_layout = FloatLayout(pos_hint={"x": 0.025, "y": 0.025}, size_hint=(0.95, 0.95))
         self.add_widget(self.map_layout)
@@ -113,6 +116,8 @@ class MapView(FloatLayout):
             for tile in self.party_tiles:
                 if tile == self.active_tile:
                     continue
+                if tile == self.updated_tile:
+                    continue
                 self.map_layout.canvas.add(tile)
                 tile.pos = self.map.grid.tile_pos_from_index(*tile.index)
                 tile.size = self.map.grid.tile_size
@@ -151,6 +156,8 @@ class MapView(FloatLayout):
                     player.name, player.position, source=os.path.join(CAMPAIGNS_DIR, "files", player.image)
                 )
                 self.map_layout.canvas.add(player_rect)
+
+                # print(f"loading {player.name} at {player.position}")
 
                 # pylint: disable=attribute-defined-outside-init
                 player_rect.pos = self.map.grid.tile_pos_from_index(*player.position)
@@ -194,13 +201,13 @@ class MapView(FloatLayout):
     def grabbing_token(self, event: MotionEvent):
         mouse_x, mouse_y = event.pos
         (map_x, map_y) = self.map_layout.pos
-        cursor_inedx = self.map.grid.pixel_to_index(mouse_x - map_x, mouse_y - map_y)
+        cursor_index = self.map.grid.pixel_to_index(mouse_x - map_x, mouse_y - map_y)
 
-        if cursor_inedx == self.campaign.position:
+        if cursor_index == self.campaign.position:
             return True
 
         for token in self.party_tiles:
-            if cursor_inedx == token.index:
+            if cursor_index == token.index:
                 self.active_tile = token
                 return True
 
@@ -215,17 +222,39 @@ class MapView(FloatLayout):
 
         elif self.campaign.current_location.type == "individual":
             self._draw_active_tile((mouse_x - icon_width / 2, mouse_y - icon_height / 2))
+            pos = self.pixel_to_absolute(event.pos)
+            self.send_player_pos(self.active_tile.name, pos)
+
+    def pixel_to_absolute(self, pos: tuple[float, float]) -> tuple[float, float]:
+        (map_x, map_y) = self.map_layout.pos
+        return (
+            (self.map.window.x + pos[0] - map_x) * self.map.window.zoom,
+            (self.map.window.y + pos[1] - map_y) * self.map.window.zoom,
+        )
+
+    def absolute_to_pixel(self, pos: tuple[float, float]) -> tuple[float, float]:
+        new_x, new_y = pos
+
+        new_x /= self.map.window.zoom
+        new_y /= self.map.window.zoom
+        (map_x, map_y) = self.map_layout.pos
+
+        return (new_x - self.map.window.x + map_x, new_y - self.map.window.y + map_y)
 
     def set_token_position(self, event: MotionEvent):
         mouse_x, mouse_y = event.pos
         (map_x, map_y) = self.map_layout.pos
-        cursor_inedx = self.map.grid.pixel_to_index(mouse_x - map_x, mouse_y - map_y)
+        cursor_index = self.map.grid.pixel_to_index(mouse_x - map_x, mouse_y - map_y)
 
         if self.campaign.current_location.type == "group":
-            self.campaign.position = cursor_inedx
+            self.campaign.position = cursor_index
 
-        elif self.campaign.current_location.type == "individual":
-            self.active_tile.index = cursor_inedx
+        elif self.campaign.current_location.type == "individual" and self.active_tile:
+            self.active_tile.index = cursor_index
+            # Update player's position in campaign
+            self.campaign.set_player_pos(self.active_tile.name, cursor_index)
+            # Send update to party / DM
+            self.send_player_index(self.active_tile.name, cursor_index)
             self.active_tile = None
 
         self.draw_party()
@@ -281,7 +310,6 @@ class MapView(FloatLayout):
         else:
             if int(self.mouse_x) != int(new_x) and int(self.mouse_y) != int(new_y):
                 self.moved = True
-
             self.map.window.x += self.mouse_x - new_x
             self.map.window.y += self.mouse_y - new_y
             self.mouse_x, self.mouse_y = (new_x, new_y)
@@ -316,19 +344,38 @@ class MapView(FloatLayout):
 
         self._by_zoom(old_zoom, event)
 
-    def update_player_pos(self, player: Player, pos: tuple[float, float]):
-        new_x, new_y = pos
-
-        player_rect = next(rect for rect in self.party_tiles if rect.name == player.name)
+    @mainthread
+    def receive_player_pos(self, player_name: str, pos: tuple[float, float]):
+        player_rect = next(rect for rect in self.party_tiles if rect.name == player_name)
 
         icon_width, icon_height = self.map.grid.tile_size
 
-        new_x *= self.map.window.zoom
-        new_y *= self.map.window.zoom
+        (pix_x, pix_y) = self.absolute_to_pixel(pos)
 
-        pos = (new_x - self.map.window.x - icon_width / 2, new_y - self.map.window.y - icon_height / 2)
-
-        player_rect.pos = pos
+        player_rect.pos = (pix_x - icon_width / 2, pix_y - icon_width / 2)
         player_rect.size = (icon_width, icon_height)
 
+        self.updated_tile = player_rect
         self.draw()
+        self.updated_tile = None
+
+    def send_player_pos(self, player_name: str, pos: tuple[float, float]):
+        message = f"POS:{player_name}:({pos[0]}, {pos[1]})"
+
+        if self.comms:
+            self.comms.send_update(message)
+
+    @mainthread
+    def receive_player_index(self, player_name: str, index: tuple[int, int]):
+        player_rect = next(rect for rect in self.party_tiles if rect.name == player_name)
+
+        player_rect.index = index
+        self.campaign.set_player_pos(player_name, index)
+
+        self.draw()
+
+    def send_player_index(self, player_name: str, pos: tuple[int, int]):
+        message = f"INDEX:{player_name}:({pos[0]}, {pos[1]})"
+
+        if self.comms:
+            self.comms.send_update(message)

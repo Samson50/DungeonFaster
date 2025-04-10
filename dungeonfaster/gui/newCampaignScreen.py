@@ -563,7 +563,6 @@ class MapEditorLayout(BoxLayout):
 
     def set_x_offset(self, value: float):
         if self.screen.campaign_view.map is None:
-            print("What?")
             return
         self.screen.campaign_view.map.grid.x_offset = value
         self.screen.campaign_view.map.draw()

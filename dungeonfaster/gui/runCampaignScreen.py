@@ -28,6 +28,8 @@ class RunCampaignScreen(Screen):
 
     def load(self, campaign_path: os.PathLike) -> None:
         self.campaign_view.load(campaign_path)
+        self.campaign_view.draw()
+        self.campaign_view.populate_tiles(self.campaign_view.campaign.current_location)
 
         self.campaign_view.start_server()
 
@@ -35,5 +37,5 @@ class RunCampaignScreen(Screen):
         Window.bind(on_request_close=self.stop_server)
 
     def stop_server(self, args):
-        self.campaign_view.server.stop()
+        self.campaign_view.comms.stop()
         return False

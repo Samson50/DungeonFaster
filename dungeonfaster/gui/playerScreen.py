@@ -68,16 +68,16 @@ class PlayerScreen(Screen):
 
     def connect_to_server(self, instance: Button):
         self.connect_button.text = "Connecting..."
-        self.client_connection = CampaignClient(self.player_view, self.player_name)
+        # self.client_connection = CampaignClient(self.player_view, self.player_name)
 
-        self.client_connection.start_client((self.host_addr, self.host_port))
+        self.player_view.connect(self.player_name, (self.host_addr, self.host_port))
 
-        while not self.client_connection.established and self.client_connection.running:
+        while not self.player_view.comms.established and self.player_view.comms.running:
             time.sleep(1)
 
         self.remove_widget(self.connect_layout)
 
-        if not self.client_connection.running:
+        if not self.player_view.comms.running:
             print("Client not running")
             return
 

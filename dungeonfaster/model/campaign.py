@@ -67,3 +67,8 @@ class Campaign:
 
     def add_player(self, player: Player):
         self.party.append(player)
+
+    def set_player_pos(self, player_name: str, pos: tuple[int, int]):
+        player = next(player for player in self.party if player.name == player_name)
+
+        player.position = pos

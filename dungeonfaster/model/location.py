@@ -14,7 +14,7 @@ class Location:
         self.type: str = location_data.get("type", "group")
         self.map_data: dict = location_data.get("map", {})
         # self.map: Map = Map(self.map_data["map_file"])
-        self.position: tuple[int, int] = location_data.get("position", (0, 0))
+        self.position: tuple[int, int] = eval(location_data.get("position", "(0, 0)"))
         self.music: list[str] = location_data.get("music", [])
         self.combat_music: list[str] = location_data.get("combat_music", [])
 

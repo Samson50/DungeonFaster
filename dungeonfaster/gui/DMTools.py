@@ -26,13 +26,11 @@ class ToolBox(BoxLayout):
         return len(self.sub_layout.children)
 
     def expand(self):
-        print(f"expanded {self.name}")
         if self.expanded:
             self.remove_widget(self.sub_layout)
             self.expanded = False
             self.size_hint[1] = 1
         else:
-            print("adding widget")
             self.add_widget(self.sub_layout)
             self.expanded = True
             self.sub_layout.size_hint[1] = self.num_display()
@@ -84,7 +82,6 @@ class DMTools(BoxLayout):
 
         else:
             self.expanded = True
-            print(self.size_hint)
             self.add_widget(self.scroll_view)
             self.size_hint[1] = self.initial_size_hint[1] * (self._num_display() + 1)
 

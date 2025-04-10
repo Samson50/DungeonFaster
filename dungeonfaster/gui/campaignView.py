@@ -122,10 +122,10 @@ class CampaignView(MapView):
         self.leave_button = Button(text="leave", pos_hint={"x": 0.05, "y": 0.90}, size_hint=(0.1, 0.05))
         self.leave_button.bind(on_release=self.on_leave_cb)
 
-        self.server = CampaignServer()
+        self.comms = CampaignServer()
 
     def start_server(self):
-        self.server.start_server(self)
+        self.comms.start_server(self)
 
     def add_controls(self) -> None:
         """Add buttons for DM control:
