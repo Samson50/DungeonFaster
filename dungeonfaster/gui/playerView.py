@@ -14,6 +14,9 @@ class PlayerView(MapView):
         self.comms = CampaignClient(self, name)
         self.comms.start_client(addr)
 
+    def request_files(self, files_needed: list[str]):
+        self.comms.request_files(files_needed)
+
     @override
     def on_click(self, layout: FloatLayout, event: MotionEvent):
         # One of the buttons is already responding to this event, ignore

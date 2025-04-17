@@ -1,5 +1,6 @@
 import os
 import socket
+import struct
 import threading
 from select import EPOLLHUP, EPOLLIN, epoll
 
@@ -107,3 +108,30 @@ class CampaignClient(Comms):
 
     def stop(self):
         pass
+
+    def request_files(self, files_needed: list[str]):
+        for file in files_needed:
+            module_path = os.path.join(os.environ["DUNGEONFASTER_PATH"], file)
+            print(f"file - {file}")
+            if not os.path.exists(module_path):
+                self.sock.send(f"FILE:{file}|".encode())
+
+                # Receive file - first four bytes are size
+                size_bytes: bytes = self.sock.recv(struct.calcsize("!I"))
+                if size_bytes == b"\xff\xff\xff\xff":
+                    print(f"ERROR: File not found: {module_path}")
+                    return
+
+                file_size = struct.unpack("!I", size_bytes)[0]
+                # Receive loop for file contents
+                with open(module_path, "wb+") as module_file:
+                    nrecv = 0
+                    while nrecv < file_size:
+                        recv_buf = self.sock.recv(min(1024, file_size - nrecv))
+                        if len(recv_buf) == 0:
+                            print("Server closed mid stream")
+                            return
+                        nrecv += len(recv_buf)
+
+                        # Write buffer to file
+                        module_file.write(recv_buf)

@@ -1,4 +1,6 @@
+import os
 import socket
+import struct
 import threading
 from select import EPOLLHUP, EPOLLIN, epoll
 
@@ -52,7 +54,7 @@ class CampaignServer(Comms):
 
                     elif fd in self.clients:
                         if event & EPOLLIN:
-                            self._receive_client_update(self.clients[fd])
+                            self._receive_message(self.clients[fd])
                         elif event & EPOLLHUP:
                             self._remove_client(self.clients[fd])
 
@@ -77,25 +79,55 @@ class CampaignServer(Comms):
 
         self.poller.register(new_client, EPOLLIN | EPOLLHUP)
 
-    def _receive_client_update(self, sock: socket.socket):
+    def _receive_message(self, sock: socket.socket):
         updates: list[str] = self._receive(sock)
         for update in updates:
             message: list[str] = update.split(":")
 
             command = message[0]
 
-            if command == "POS":
-                player: str = message[1]
-                pos: tuple[float, float] = eval(message[2])
-                # print(f"Updated for {player}: {pos}")
-                self.map_view.receive_player_pos(player, pos)
-            elif command == "INDEX":
-                player: str = message[1]
-                index: tuple[int, int] = eval(message[2])
-                # print(f"Updated for {player}: {pos}")
-                self.map_view.receive_player_index(player, index)
+            if command in ["POS", "INDEX"]:
+                self._handle_update(message)
+                self._forward_update(sock, update.encode("utf-8"))
 
-            self._forward_update(sock, update.encode("utf-8"))
+            elif command == "FILE":
+                print(f"File requested: {message[1]}")
+                self._send_file(sock, message[1])
+
+    def _send_file(self, sock: socket.socket, file_path: str):
+        abs_path = os.path.join(os.environ["DUNGEONFASTER_PATH"], file_path)
+
+        # Check file exists
+        if not os.path.exists(abs_path):
+            sock.send(b"\xff\xff\xff\xff")
+        else:
+            # Get file size and serialize
+            size = os.stat(abs_path).st_size
+            sock.send(struct.pack("!I", size))
+            nsent = 0
+
+            # Read & send loop
+            with open(abs_path, "rb") as send_file:
+                while nsent < size:
+                    send_bytes = send_file.read(min(1024, size - nsent))
+
+                    s = sock.send(send_bytes)
+                    if s <= 0:
+                        return
+                    nsent += s
+
+    def _handle_update(self, message: list[str]):
+        command = message[0]
+        if command == "POS":
+            player: str = message[1]
+            pos: tuple[float, float] = eval(message[2])
+            # print(f"Updated for {player}: {pos}")
+            self.map_view.receive_player_pos(player, pos)
+        elif command == "INDEX":
+            player: str = message[1]
+            index: tuple[int, int] = eval(message[2])
+            # print(f"Updated for {player}: {pos}")
+            self.map_view.receive_player_index(player, index)
 
     def _forward_update(self, sock: socket.socket, update: bytes):
         recipients = [client for client in self.clients.values() if client != sock]

@@ -84,6 +84,10 @@ class PlayerScreen(Screen):
         # Load campaign
         self.player_view.campaign = Campaign()
         campaign_path = os.path.join(USERS_DIR, f"{self.player_name}.json")
+
+        files_needed = self.player_view.campaign.get_files(campaign_path)
+        self.player_view.request_files(files_needed)
+
         self.player_view.campaign.load(campaign_path, self.player_view.map_layout)
         self.player_view.map = self.player_view.campaign.current_location.map
         self.player_view.populate_tiles(self.player_view.campaign.current_location)
